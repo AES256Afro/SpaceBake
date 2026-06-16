@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpaceBake — Idle Space Career Sim</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>" />
+</head>
+<body>
+  <header id="header">
+    <div class="brand">🚀 <span>SpaceBake</span> <small>idle space career sim</small></div>
+    <div id="topbar"></div>
+    <div class="header-controls">
+      <button id="btn-save" class="btn tiny">💾 Save</button>
+      <button id="btn-reset" class="btn tiny danger">⟲ Reset</button>
+    </div>
+  </header>
+
+  <div id="mission-banner" class="hidden"></div>
+
+  <nav id="tabs"></nav>
+
+  <main id="body"></main>
+
+  <aside id="logwrap">
+    <h4>📜 Ship's Log</h4>
+    <div id="log"></div>
+  </aside>
+
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
