@@ -8,6 +8,9 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>" />
 </head>
 <body>
+  <!-- header, ticker, banner and tabs pin together so the tab bar can never hide
+       under the (tall, wrapping) sticky header and swallow taps. -->
+  <div id="topchrome">
   <header id="header">
     <div class="brand">🚀 <span>SpaceBake</span> <small>idle space career sim</small></div>
     <div id="topbar"></div>
@@ -27,6 +30,7 @@
   <div id="mission-banner" class="hidden"></div>
 
   <nav id="tabs"></nav>
+  </div><!-- /#topchrome -->
 
   <main id="body"></main>
 
@@ -37,12 +41,12 @@
 
   <!-- ?v bumped on each release so browsers fetch fresh code even if a stale
        index.html slips through a cache. Raise this on meaningful deploys. -->
-  <script src="js/data.js?v=20260626b"></script>
-  <script src="js/state.js?v=20260626b"></script>
-  <script src="js/engine.js?v=20260626b"></script>
-  <script src="js/sound.js?v=20260626b"></script>
-  <script src="js/settings.js?v=20260626b"></script>
-  <script src="js/ui.js?v=20260626b"></script>
-  <script src="js/main.js?v=20260626b"></script>
+  <script src="js/data.js?v=20260626c"></script>
+  <script src="js/state.js?v=20260626c"></script>
+  <script src="js/engine.js?v=20260626c"></script>
+  <script src="js/sound.js?v=20260626c"></script>
+  <script src="js/settings.js?v=20260626c"></script>
+  <script src="js/ui.js?v=20260626c"></script>
+  <script src="js/main.js?v=20260626c"></script>
 </body>
 </html>

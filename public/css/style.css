@@ -58,11 +58,17 @@ body::after {
 @keyframes twinkle { 0%,100% { opacity: .5; } 50% { opacity: .25; } }
 #header, #mission-banner, #tabs, #body, #logwrap { position: relative; z-index: 1; }
 
+/* Sticky top chrome: header + ticker + banner + tabs pin together as one unit so
+   the tab bar is always on top and tappable — it can't scroll under the tall,
+   wrapping header on tablets/phones and swallow taps. Opaque background so body
+   content scrolling beneath doesn't bleed through the gaps between tab buttons. */
+#topchrome { position: sticky; top: 0; z-index: 20; background: var(--bg); }
+
 /* header */
 #header {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 10px 18px; background: linear-gradient(var(--bg2), transparent);
-  border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
+  border-bottom: 1px solid var(--line);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
