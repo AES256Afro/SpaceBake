@@ -21,17 +21,26 @@ const SKILLS = {
 
 // XP curve: total XP required to *reach* a given level (Melvor-ish exponential).
 const MAX_LEVEL = 99;
-function xpForLevel(level) {
-  // Classic RuneScape-style accumulation, scaled down a little.
+// Precomputed once: XP_TABLE[level] = cumulative XP needed to reach `level`.
+// skillLevel() runs levelForXp() constantly (every render touches it), so the
+// old per-call O(n²) summation was wasted work. Covers 1..MAX_LEVEL+1 so the
+// UI's "xp to next level" lookup at max level (xpForLevel(lvl+1)) still resolves.
+const XP_TABLE = (() => {
+  const t = [0, 0]; // t[0] unused; t[1] = 0 (level 1 needs no XP)
   let total = 0;
-  for (let l = 1; l < level; l++) {
-    total += Math.floor(l + 300 * Math.pow(2, l / 7));
+  for (let l = 1; l <= MAX_LEVEL; l++) {
+    total += Math.floor(l + 300 * Math.pow(2, l / 7)); // identical term to the old loop
+    t[l + 1] = Math.floor(total / 4);
   }
-  return Math.floor(total / 4);
+  return t;
+})();
+function xpForLevel(level) {
+  if (level <= 1) return 0;
+  return level < XP_TABLE.length ? XP_TABLE[level] : XP_TABLE[XP_TABLE.length - 1];
 }
 function levelForXp(xp) {
   let level = 1;
-  while (level < MAX_LEVEL && xp >= xpForLevel(level + 1)) level++;
+  while (level < MAX_LEVEL && xp >= XP_TABLE[level + 1]) level++;
   return level;
 }
 
