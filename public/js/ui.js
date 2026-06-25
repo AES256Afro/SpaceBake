@@ -70,6 +70,7 @@ const UI = (() => {
     const fac = FACTIONS[fid];
     items.push([fac.icon, `${standingName(factionRep(g, fid))} (${factionRep(g, fid)})`, `${fac.name} standing`]);
     if ((g.renown || 0) > 0) items.push(['✨', `${fmt(g.renown)} (+${Math.round(g.renown * 2)}%)`, 'Renown — permanent production bonus']);
+    if ((g.heat || 0) >= 1 && Engine.heatTier) { const t = Engine.heatTier(g); items.push([t.icon, `${t.label} (${Math.round(g.heat)})`, 'Notoriety — illegal activity draws bounty hunters and customs scrutiny']); }
     // flash the credits chip + float the delta when the balance changes
     let creditFlash = '';
     if (lastCredits !== null && g.credits !== lastCredits) {
@@ -607,6 +608,59 @@ const UI = (() => {
     return wrap;
   }
 
+  // multi-step faction operation: active progress + branching payoff, or the offer
+  function renderOperationSection(wrap, base) {
+    const st = Engine.operationStatus && Engine.operationStatus(g);
+    wrap.appendChild(el('h3', null, '🎯 Faction Operations'));
+    if (st) {
+      const op = st.op, fac = FACTIONS[op.faction], here = base.factionId === op.faction;
+      const card = el('div', 'banner-card');
+      const stepsHtml = op.steps.map((s, i) => {
+        const doneStep = i < op.step, cur = i === op.step && !st.awaitingPayoff;
+        const mark = doneStep ? '✓' : (cur ? '▶' : '○');
+        const prog = cur ? ` — <b>${Math.floor(st.have)}/${s.n}</b>` : '';
+        return `<div class="op-step${doneStep ? ' done' : ''}${cur ? ' current' : ''}">${mark} ${s.label}${prog}</div>`;
+      }).join('');
+      card.innerHTML = `<div class="banner-head"><strong>🎯 ${op.title}</strong><span>${fac.icon} ${fac.name}</span></div>
+        <p class="muted">${op.blurb}</p>${stepsHtml}`;
+      const actions = el('div', 'distress-choices');
+      if (st.awaitingPayoff) {
+        card.appendChild(el('p', here ? '' : 'muted', here ? 'All steps complete — choose your payoff:' : `Return to a ${fac.name} station to claim your payoff.`));
+        if (here) for (const p of OPERATION_PAYOFFS) {
+          const desc = p.id === 'credits' ? `+${fmt(Math.round(op.reward.credits * 1.5))} cr`
+            : `+${op.reward.rep * 2} standing · +${op.reward.xp * 2} XP · +${fmt(op.reward.credits)} cr`;
+          const b = el('button', 'btn', `${p.icon} ${p.label} (${desc})`);
+          b.onclick = () => notify(Engine.chooseOperationPayoff(g, p.id));
+          actions.appendChild(b);
+        }
+      } else {
+        const rep = el('button', 'btn', (st.met && here) ? 'Report Step ✓' : here ? 'Step not ready' : `Report at ${fac.name}`);
+        rep.disabled = !(st.met && here);
+        rep.onclick = () => notify(Engine.reportOperation(g));
+        actions.appendChild(rep);
+      }
+      const ab = el('button', 'btn tiny', 'Abandon');
+      ab.onclick = () => { Engine.abandonOperation(g); refresh(); };
+      actions.appendChild(ab);
+      card.appendChild(actions);
+      wrap.appendChild(card);
+    } else if (g.operationOffer && !hostileHereUI(g)) {
+      const off = g.operationOffer, fac = FACTIONS[off.faction];
+      const card = el('div', 'card');
+      const stepList = off.steps.map(s => `<li>${s.label}</li>`).join('');
+      card.innerHTML = `<div class="card-head"><strong>${off.title}</strong><span class="tag tag-high">${off.steps.length}-step</span></div>
+        <p class="muted">${off.blurb}</p><ul class="op-list">${stepList}</ul>
+        <div class="card-meta"><span>💰 up to ${fmt(Math.round(off.reward.credits * 1.5))} cr</span><span>🤝 +${off.reward.rep}</span><span>${fac.icon} ${fac.name}</span></div>`;
+      const b = el('button', 'btn full', g.operation ? 'Finish your current operation first' : 'Accept operation');
+      b.disabled = !!g.operation;
+      b.onclick = () => notify(Engine.acceptOperation(g));
+      card.appendChild(b);
+      wrap.appendChild(card);
+    } else {
+      wrap.appendChild(el('p', 'muted', 'No operation posted here right now — the board refreshes periodically, and different faction stations run different jobs.'));
+    }
+  }
+
   function renderContracts() {
     const wrap = el('div', 'panel');
     const base = curBase(g);
@@ -651,6 +705,9 @@ const UI = (() => {
       card.appendChild(actions);
       wrap.appendChild(card);
     }
+
+    // ---- faction operations (multi-step jobs with a branching payoff) ----
+    renderOperationSection(wrap, base);
 
     // available offers
     wrap.appendChild(el('h3', null, '🗂️ Available Contracts'));
@@ -998,6 +1055,43 @@ const UI = (() => {
     // automation (now standard — the idle loop runs by default)
     wrap.appendChild(el('h3', null, '🔁 Automation'));
     wrap.appendChild(el('p', 'muted', '✅ Idle auto-repeat is built in. Toggle "🔁 Auto-repeat (idle loop)" in the Activities tab — it relaunches your route the moment the ship returns, and pauses itself if the hull drops below your set integrity threshold.'));
+
+    // ---- player outpost (passive base you build & upgrade) ----
+    wrap.appendChild(el('h3', null, '🏗️ Outpost'));
+    const tier = Engine.outpostTier ? Engine.outpostTier(g) : 0;
+    if (tier <= 0) {
+      const t1 = OUTPOST_TIERS[0];
+      const card = el('div', 'sysinfo');
+      card.innerHTML = `<p class="muted">Build a private outpost that earns credits passively while you fly — no piloting required. Upgrade it through tiers for a fatter rate. Income accrues offline (capped at 12h).</p>
+        <p><b>${t1.name}</b> — ${t1.desc} <span class="muted">(${fmt(t1.rate)} cr/hr)</span></p>`;
+      const b = el('button', 'btn', `Build ${t1.name} — ${fmt(t1.cost)} cr`);
+      b.disabled = g.credits < t1.cost;
+      b.onclick = () => notify(Engine.buildOutpost(g));
+      card.appendChild(b);
+      wrap.appendChild(card);
+    } else {
+      const def = Engine.outpostDef(g);
+      const pend = Math.floor((g.outpost && g.outpost.pendingCr) || 0);
+      const card = el('div', 'sysinfo');
+      card.innerHTML = `<p><b>${def.name}</b> (Tier ${tier}/${OUTPOST_TIERS.length}) — <span class="muted">${def.desc}</span></p>
+        <p>Earning <b>${fmt(Math.round(def.rate))} cr/hr</b> · Uncollected: <b>${fmt(pend)} cr</b></p>`;
+      const actions = el('div', 'distress-choices');
+      const col = el('button', 'btn', `Collect ${fmt(pend)} cr`);
+      col.disabled = pend <= 0;
+      col.onclick = () => notify(Engine.collectOutpost(g));
+      actions.appendChild(col);
+      if (tier < OUTPOST_TIERS.length) {
+        const next = OUTPOST_TIERS[tier];
+        const up = el('button', 'btn', `Upgrade to ${next.name} — ${fmt(next.cost)} cr (${fmt(next.rate)} cr/hr)`);
+        up.disabled = g.credits < next.cost;
+        up.onclick = () => notify(Engine.upgradeOutpost(g));
+        actions.appendChild(up);
+      } else {
+        actions.appendChild(el('small', 'muted', 'Fully upgraded — top tier.'));
+      }
+      card.appendChild(actions);
+      wrap.appendChild(card);
+    }
 
     // crew
     wrap.appendChild(el('h3', null, `🧑‍🚀 Crew — ${crewAboard(g).length}/${slots} berths aboard the ${(SHIPS[g.activeShip] || SHIPS.shuttle).name}`));

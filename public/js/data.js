@@ -1665,3 +1665,47 @@ const CREW_TASKS = {
       { p: 2, bad: true, xp: 8, log: 'chased a dead lead and came back with sore feet.' },
     ] },
 };
+
+// ---------------------------------------------------------------------------
+// HEAT / NOTORIETY — illegal activity makes you wanted. Heat (0–100) rises from
+// smuggling and pirate work, decays as you lie low, and at high tiers lawful
+// factions actively hunt you (harder customs, bounty-hunter interdictions).
+// ---------------------------------------------------------------------------
+const HEAT_TIERS = [
+  { min: 85, label: 'Most Wanted', icon: '💀' },
+  { min: 65, label: 'Notorious',   icon: '🔥' },
+  { min: 40, label: 'Wanted',      icon: '⚠️' },
+  { min: 20, label: 'Watched',     icon: '👀' },
+  { min: 0,  label: 'Unknown',     icon: '😶' },
+];
+
+// ---------------------------------------------------------------------------
+// OUTPOSTS — a player-owned base you build once and upgrade through tiers. It
+// accrues credits passively (offline-capped like the fleet) and each tier lifts
+// the rate. Build/upgrade/collect from the Operations tab.
+// ---------------------------------------------------------------------------
+const OUTPOST_TIERS = [
+  { name: 'Prospecting Claim', cost: 8000,   rate: 130,  desc: 'A staked claim with a handful of automated rigs ticking over.' },
+  { name: 'Mining Depot',      cost: 26000,  rate: 360,  desc: 'Ore silos and a small dock — independents pay to offload here.' },
+  { name: 'Refinery Station',  cost: 80000,  rate: 880,  desc: 'A working refinery that turns the claim\'s output into real money.' },
+  { name: 'Frontier Hub',      cost: 200000, rate: 2100, desc: 'A bustling waystation. Half the lane stops here now — and pays a berth fee.' },
+];
+
+// ---------------------------------------------------------------------------
+// FACTION OPERATIONS — repeatable, multi-step jobs beyond the fixed storylines.
+// An operation chains 2–3 objectives; finishing the last one lets you pick one
+// of two branching payoffs. Objective step shapes: deliver | produce | kills.
+// Generated procedurally and scaled to the player, so they always fit.
+// ---------------------------------------------------------------------------
+const OPERATION_FLAVOR = {
+  freebelt:  { title: 'Secure the Lane',     blurb: 'The Union needs the Kharon lanes kept open and supplied.' },
+  concord:   { title: 'Deep Survey Push',    blurb: 'The Concord is funding a coordinated survey effort.' },
+  redmaw:    { title: 'The Big Score',       blurb: 'The Maw is planning something. They want a proven hand.' },
+  corporate: { title: 'Quarterly Targets',   blurb: 'Helix has numbers to hit and a budget to make it worth your while.' },
+  socialist: { title: 'Provision the Communes', blurb: 'The communes are pooling for a shared supply drive.' },
+};
+// the two payoff choices offered at the end of every operation
+const OPERATION_PAYOFFS = [
+  { id: 'credits', label: 'Take the credit bonus', icon: '💰' },
+  { id: 'standing', label: 'Take the standing & XP', icon: '🤝' },
+];
