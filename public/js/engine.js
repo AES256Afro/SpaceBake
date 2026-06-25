@@ -405,14 +405,20 @@ const Engine = (() => {
     const sid2 = newsPick(sysIds.filter(x => x !== sid)) || sid;
     const resId = newsPick(Object.keys(RESOURCES));
     const bodyIds = Object.keys(BODIES);
+    // ~40% of the time the subject is a recurring public figure rather than a
+    // one-off name, so the same cast keeps surfacing across news + rumours.
+    let person = newsName(), title = newsPick(NEWS_TITLES);
+    if (typeof NAMED_CHARACTERS !== 'undefined' && NAMED_CHARACTERS.length && Math.random() < 0.4) {
+      const ch = newsPick(NAMED_CHARACTERS); person = ch.name; title = ch.title;
+    }
     return {
       faction: f.name, rival: FACTIONS[rivalId].name,
       system: SYSTEMS[sid].name, system2: SYSTEMS[sid2].name,
       economy: SYSTEMS[sid].economy, danger: SYSTEMS[sid].danger,
       resource: RESOURCES[resId].name, corp: FACTIONS.corporate.name,
       body: bodyIds.length ? BODIES[newsPick(bodyIds)].name : SYSTEMS[sid].name,
-      org: newsPick(NEWS_ORGS), ship: newsPick(NEWS_SHIP_NAMES), title: newsPick(NEWS_TITLES),
-      person: newsName(), person2: newsName(), price: newsPrice(),
+      org: newsPick(NEWS_ORGS), ship: newsPick(NEWS_SHIP_NAMES), title,
+      person, person2: newsName(), price: newsPrice(),
       n: 2 + Math.floor(Math.random() * 48), pct: 3 + Math.floor(Math.random() * 30),
       age: 58 + Math.floor(Math.random() * 42), // 58–99, for obituaries
     };
