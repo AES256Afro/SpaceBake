@@ -100,7 +100,13 @@ const UI = (() => {
       host.appendChild(renderEncounter());
       return;
     }
-    if (!g.mission) { host.classList.add('hidden'); return; }
+    if (!g.mission) {
+      // idle loop paused for damage — don't just vanish; tell the player why and
+      // give them a one-tap way to resume so the banner area never goes silent.
+      if (g.autoRepeatPaused) { host.classList.remove('hidden'); host.appendChild(renderIdlePaused()); return; }
+      host.classList.add('hidden');
+      return;
+    }
     host.classList.remove('hidden');
     const m = g.mission;
     const isTravel = m.type === 'travel';
@@ -123,6 +129,31 @@ const UI = (() => {
     btn.onclick = () => { Engine.recallMission(g); refresh(); };
     card.appendChild(btn);
     host.appendChild(card);
+  }
+
+  // shown in place of the progress bar when the idle loop pauses for ship damage,
+  // so the banner area never just goes blank when a run finishes.
+  function resumeIdle() {
+    g.autoRepeat = true; g.autoRepeatPaused = false;
+    if (g.lastRoute) {
+      const r = g.lastRoute.poi ? Engine.startPoiMission(g, g.lastRoute.poi) : Engine.startMission(g, g.lastRoute.id);
+      if (r && r.ok === false) Engine.logLine(g, `Couldn't resume: ${r.msg}`, 'bad');
+    }
+  }
+  function renderIdlePaused() {
+    const card = el('div', 'banner-card distress');
+    const integ = Engine.shipIntegrity ? Engine.shipIntegrity(g) : 0;
+    card.innerHTML = `<div class="banner-head"><strong>⏸️ Idle loop paused</strong><span class="muted">integrity ${integ}% · below ${g.repairAt}%</span></div>
+      <p class="distress-text">Your ship took too much damage to keep running on its own. Repair to resume, or carry on regardless.</p>`;
+    const row = el('div', 'distress-choices');
+    const fix = el('button', 'btn', '🔧 Repair & resume');
+    fix.onclick = () => { const r = Engine.repairAll(g); if (r.ok) resumeIdle(); notify(r); };
+    row.appendChild(fix);
+    const resume = el('button', 'btn', '▶ Resume anyway');
+    resume.onclick = () => { resumeIdle(); refresh(); };
+    row.appendChild(resume);
+    card.appendChild(row);
+    return card;
   }
 
   function renderDistress() {
@@ -260,28 +291,23 @@ const UI = (() => {
     flee.appendChild(range);
     cfg.appendChild(flee);
 
-    // automation: auto-repeat the launched route (requires Flight Computer)
+    // automation: auto-repeat the launched route (on by default — the idle loop)
     const auto = el('label', 'cfg-field');
-    if (g.unlocks && g.unlocks.automation) {
-      auto.innerHTML = `<span>🔁 Auto-repeat route</span>`;
-      const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!g.autoRepeat;
-      cb.onchange = () => { g.autoRepeat = cb.checked; if (cb.checked) g.autoRepeatPaused = false; refresh(); };
-      auto.appendChild(cb);
-      const autoMsg = g.autoRepeat ? 'Relaunching on return.'
-        : (g.autoRepeatPaused ? 'Paused — repair to resume.' : 'Off — launch once.');
-      auto.appendChild(el('small', 'muted', autoMsg));
-      // pause auto-repeat once the ship is this damaged, so the idle loop doesn't
-      // keep flying a battered hull back out.
-      const rep = el('label', 'cfg-field');
-      rep.innerHTML = `<span>Pause auto-repeat below <b>${g.repairAt}%</b> integrity</span>`;
-      const rr = el('input'); rr.type = 'range'; rr.min = 0; rr.max = 90; rr.step = 5; rr.value = g.repairAt;
-      rr.oninput = () => { g.repairAt = +rr.value; rep.querySelector('b').textContent = g.repairAt + '%'; };
-      rep.appendChild(rr);
-      auto.appendChild(rep);
-    } else {
-      auto.innerHTML = `<span>🔁 Auto-repeat route</span>`;
-      auto.appendChild(el('small', 'muted', 'Install a Flight Computer in 🛠️ Operations to unlock.'));
-    }
+    auto.innerHTML = `<span>🔁 Auto-repeat (idle loop)</span>`;
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!g.autoRepeat;
+    cb.onchange = () => { g.autoRepeat = cb.checked; if (cb.checked) g.autoRepeatPaused = false; refresh(); };
+    auto.appendChild(cb);
+    const autoMsg = g.autoRepeat ? 'On — missions repeat automatically.'
+      : (g.autoRepeatPaused ? 'Paused — repair to resume.' : 'Off — runs once, then stops.');
+    auto.appendChild(el('small', 'muted', autoMsg));
+    // pause auto-repeat once the ship is this damaged, so the idle loop doesn't
+    // keep flying a battered hull back out.
+    const rep = el('label', 'cfg-field');
+    rep.innerHTML = `<span>Pause idle loop below <b>${g.repairAt}%</b> integrity</span>`;
+    const rr = el('input'); rr.type = 'range'; rr.min = 0; rr.max = 90; rr.step = 5; rr.value = g.repairAt;
+    rr.oninput = () => { g.repairAt = +rr.value; rep.querySelector('b').textContent = g.repairAt + '%'; };
+    rep.appendChild(rr);
+    auto.appendChild(rep);
     cfg.appendChild(auto);
     wrap.appendChild(cfg);
 
@@ -919,18 +945,9 @@ const UI = (() => {
     const wrap = el('div', 'panel');
     const slots = crewSlots(g);
 
-    // automation unlock
+    // automation (now standard — the idle loop runs by default)
     wrap.appendChild(el('h3', null, '🔁 Automation'));
-    if (g.unlocks && g.unlocks.automation) {
-      wrap.appendChild(el('p', 'muted', '✅ Flight Computer installed. Toggle "Auto-repeat route" in the Activities tab to keep a route running hands-free.'));
-    } else {
-      const card = el('div', 'sysinfo');
-      card.innerHTML = `<p class="muted">A <b>Flight Computer</b> lets you flag an activity to <b>auto-repeat</b> — it relaunches the moment your ship returns, so a route runs while you're away.</p>`;
-      const b = el('button', 'btn', `Install Flight Computer — ${fmt(AUTOMATION_COST)} cr`);
-      b.onclick = () => notify(Engine.buyUnlock(g, 'automation'));
-      card.appendChild(b);
-      wrap.appendChild(card);
-    }
+    wrap.appendChild(el('p', 'muted', '✅ Idle auto-repeat is built in. Toggle "🔁 Auto-repeat (idle loop)" in the Activities tab — it relaunches your route the moment the ship returns, and pauses itself if the hull drops below your set integrity threshold.'));
 
     // crew
     wrap.appendChild(el('h3', null, `🧑‍🚀 Crew — ${crewAboard(g).length}/${slots} berths aboard the ${(SHIPS[g.activeShip] || SHIPS.shuttle).name}`));
@@ -955,6 +972,13 @@ const UI = (() => {
 
     // crew hiring hall — only specialists looking for work at this base's cantina
     const base = curBase(g);
+    // cantina rumours — overheard gossip at the bar (flavour)
+    if (base.facilities.includes('cantina') && (g.rumors || []).length) {
+      wrap.appendChild(el('h3', null, '🍺 Cantina Talk'));
+      const rl = el('div', 'rumor-list');
+      for (const r of g.rumors) rl.appendChild(el('div', 'rumor', `“${r}”`));
+      wrap.appendChild(rl);
+    }
     const hirePool = (base.facilities.includes('cantina') ? (base.crew || []) : []);
     wrap.appendChild(el('h3', null, `🧾 Cantina — hiring at ${base.name}`));
     if (!hirePool.length) {

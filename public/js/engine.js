@@ -153,6 +153,7 @@ const Engine = (() => {
       events: [], resolved: false,
       poi: opts.poi || null, location: opts.location || null,
     };
+    g.lastRoute = { id: activityId, poi: opts.poi || null }; // remembered so a paused idle loop can resume
     logLine(g, `Undocked: ${act.name}${opts.location ? ` → ${opts.location}` : ''} (${dur}s).`, 'go');
     return { ok: true };
   }
@@ -271,6 +272,7 @@ const Engine = (() => {
     g.currentBase = baseId;
     generateContracts(g);    // fresh board for this base's faction
     logLine(g, `Docked at ${base.name} (${FACTIONS[base.factionId].name}).`, 'go');
+    arrivalFlavor(g);        // a line of local colour
     arrivalCustoms(g);       // a different base means a different customs desk
     arrivalHostility(g);
     return { ok: true };
@@ -407,6 +409,36 @@ const Engine = (() => {
     g.newsEndsAt = now + (90 + Math.floor(Math.random() * 150)) * 1000; // 1.5–4 min
   }
 
+  // ----- cantina rumours: local bar gossip, regenerated when the board rolls -----
+  function rollRumors(g) {
+    if (typeof RUMORS === 'undefined') return;
+    const n = 3 + Math.floor(Math.random() * 2); // 3–4 rumours per board
+    const pool = RUMORS.slice();
+    const out = [];
+    for (let i = 0; i < n && pool.length; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      out.push(fillTokens(pool.splice(idx, 1)[0], newsContext(g)));
+    }
+    g.rumors = out;
+  }
+
+  // ----- crew barks: a little character in the log after a completed run -----
+  function maybeCrewBark(g) {
+    if (Math.random() > 0.28) return;                 // ~quarter of runs
+    const aboard = (typeof crewAboard === 'function' ? crewAboard(g) : []).filter(c => c && c.bark && c.bark.length);
+    if (!aboard.length) return;
+    const c = newsPick(aboard);
+    logLine(g, `${c.icon} ${c.name}: ${newsPick(c.bark)}`, 'event');
+  }
+
+  // ----- arrival flavour: a colour line when you dock somewhere -----
+  function arrivalFlavor(g) {
+    if (typeof ARRIVAL_LINES === 'undefined') return;
+    const base = curBase(g), fac = FACTIONS[base.factionId];
+    const ctx = { base: base.name, faction: fac ? fac.name : 'station', system: curSystem(g).name };
+    logLine(g, newsPick(ARRIVAL_LINES).replace(/\{(\w+)\}/g, (m, k) => ctx[k] != null ? ctx[k] : m), 'event');
+  }
+
   // ----- customs & faction welcome on arrival -----
   // lawful stations scan arriving ships for illegal cargo.
   function arrivalCustoms(g) {
@@ -451,6 +483,7 @@ const Engine = (() => {
   function generateContracts(g) {
     const fid = curBase(g).factionId;
     g.contractOffersEndsAt = Date.now() + 300 * 1000; // refresh every 5 min
+    rollRumors(g);                                     // fresh cantina gossip with each board
     // hostiles won't hire you
     if (hostileHere(g)) { g.contractOffers = []; return; }
     const fac = FACTIONS[fid];
@@ -670,6 +703,7 @@ const Engine = (() => {
       const sys = SYSTEMS[m.dest];
       logLine(g, `Arrived at ${sys.name}, docking at ${curBase(g).name}.`, 'good');
       if (sys.danger === 'High') logLine(g, `⚠️ ${sys.name} is high-danger space. Watch your hull.`, 'event');
+      arrivalFlavor(g);        // a line of local colour
       arrivalCustoms(g);       // lawful space scans for contraband
       arrivalHostility(g);     // hostile factions don't roll out the welcome mat
       g.mission = null;
@@ -807,6 +841,7 @@ const Engine = (() => {
 
     // crew wages drawn from the run's takings
     payCrewWages(g);
+    maybeCrewBark(g);        // a little character from whoever's aboard
 
     // a salvage-type run may turn up a broken ship or sealed find to investigate
     maybeTriggerEncounter(g, act);

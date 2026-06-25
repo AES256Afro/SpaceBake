@@ -16,6 +16,7 @@ function newGame() {
     news: [],                       // GalNet news feed (procedural flavour headlines, newest first)
     newsEndsAt: 0,                  // when to roll the next batch (0 => roll on first tick)
     newsSeen: 0,                    // timestamp the player last opened the News tab (for the unread badge)
+    rumors: [],                     // cantina gossip at the current base (refreshes with the contract board)
     contractOffers: [],             // faction contracts available at this station
     contractOffersEndsAt: 0,        // when to re-roll offers
     activeContract: null,           // the one contract you've accepted
@@ -54,8 +55,8 @@ function newGame() {
     pendingEncounter: null,
     // ---- MVP 5: crew, automation, fleet ----
     crew: [],                       // hired crew ids (first CREW_SLOTS are "aboard")
-    unlocks: { automation: false }, // one-time feature unlocks
-    autoRepeat: false,              // auto-relaunch the last activity on return
+    unlocks: { automation: true },  // automation is on for everyone now (idle loop is core)
+    autoRepeat: true,               // idle missions auto-repeat by default (pause is the damage threshold)
     fleet: {},                      // owned fleet units: unitId -> count
     fleetPendingCr: 0,              // accrued, unclaimed passive income
     fleetLast: Date.now(),          // last time fleet income/harvest was accrued
@@ -108,6 +109,7 @@ function loadGame() {
     if (!Array.isArray(g.news)) g.news = [];
     if (typeof g.newsEndsAt !== 'number') g.newsEndsAt = 0;
     if (typeof g.newsSeen !== 'number') g.newsSeen = 0;
+    if (!Array.isArray(g.rumors)) g.rumors = [];
     delete g.wars; // wars were never shipped as a mechanic; drop any stragglers from earlier saves
     if (g.pendingEncounter === undefined) g.pendingEncounter = null;
     // ---- forward-migrate older saves (pre-MVP4) ----
@@ -123,7 +125,10 @@ function loadGame() {
     // ---- forward-migrate older saves (pre-MVP5) ----
     if (!Array.isArray(g.crew)) g.crew = [];
     if (!g.unlocks || typeof g.unlocks !== 'object') g.unlocks = { automation: false };
+    g.unlocks.automation = true; // idle auto-repeat is now standard, not a paid unlock
     if (typeof g.autoRepeat !== 'boolean') g.autoRepeat = false;
+    // one-time: turn the idle loop ON for existing saves (the whole point of the feature)
+    if (!g.idleDefaultApplied) { g.autoRepeat = true; g.idleDefaultApplied = true; }
     if (typeof g.autoRepeatPaused !== 'boolean') g.autoRepeatPaused = false;
     if (typeof g.repairAt !== 'number') g.repairAt = 50;
     if (!g.fleet || typeof g.fleet !== 'object') g.fleet = {};
