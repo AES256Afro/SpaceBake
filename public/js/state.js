@@ -20,6 +20,11 @@ function newGame() {
     galaxyEvent: null,              // active cluster-wide event {id, startedAt, endsAt} or null
     galaxyEventNextAt: 0,           // earliest time the next galaxy event may start
     crewAssignments: [],            // crew off on timed side-tasks: [{idx, taskId, startedAt, endsAt}]
+    heat: 0,                        // notoriety 0..100 — rises from crime, draws bounty hunters
+    heatLast: Date.now(),           // last heat-decay timestamp
+    outpost: null,                  // player-owned passive base {tier, lastAccrue, pendingCr} or null
+    operation: null,                // active multi-step faction operation or null
+    operationOffer: null,           // the operation currently on offer at this base
     contractOffers: [],             // faction contracts available at this station
     contractOffersEndsAt: 0,        // when to re-roll offers
     activeContract: null,           // the one contract you've accepted
@@ -119,6 +124,11 @@ function loadGame() {
     if (g.galaxyEvent !== null && typeof g.galaxyEvent !== 'object') g.galaxyEvent = null;
     if (typeof g.galaxyEventNextAt !== 'number') g.galaxyEventNextAt = 0;
     if (!Array.isArray(g.crewAssignments)) g.crewAssignments = [];
+    if (typeof g.heat !== 'number' || isNaN(g.heat)) g.heat = 0;
+    if (typeof g.heatLast !== 'number') g.heatLast = Date.now();
+    if (g.outpost !== null && (typeof g.outpost !== 'object' || typeof g.outpost.tier !== 'number')) g.outpost = null;
+    if (g.operation !== null && typeof g.operation !== 'object') g.operation = null;
+    if (g.operationOffer !== null && typeof g.operationOffer !== 'object') g.operationOffer = null;
     delete g.wars; // wars were never shipped as a mechanic; drop any stragglers from earlier saves
     if (g.pendingEncounter === undefined) g.pendingEncounter = null;
     // ---- forward-migrate older saves (pre-MVP4) ----

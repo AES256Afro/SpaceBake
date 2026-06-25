@@ -55,9 +55,10 @@ const Engine = (() => {
     g.marketEvents = []; g.marketEventsEndsAt = 0;
     g.contractOffers = []; g.contractOffersEndsAt = 0; g.activeContract = null;
     g.questChains = {};
-    g.crew = []; g.unlocks = { automation: false }; g.autoRepeat = false; g.autoRepeatPaused = false;
+    g.crew = []; g.unlocks = { automation: true }; g.autoRepeat = true; g.autoRepeatPaused = false; g.crewAssignments = [];
     g.fleet = {}; g.deployments = []; g.fleetStock = {}; g.fleetPendingCr = 0; g.fleetLast = Date.now();
     g.bargeProduced = {}; g.bargeLogAt = 0;
+    g.heat = 0; g.heatLast = Date.now(); g.outpost = null; g.operation = null; g.operationOffer = null;
     logLine(g, `✨ Prestiged! Gained ${gain} Renown (now ${g.renown}). Permanent +${Math.round(g.renown * 2)}% to production. The frontier begins anew.`, 'level');
     return { ok: true };
   }
@@ -362,6 +363,8 @@ const Engine = (() => {
 
     // fleet passive income accrues continuously (and catches up offline)
     accrueFleet(g);
+    accrueOutpost(g);  // player outpost earns passively too
+    decayHeat(g, now); // notoriety cools off over time
 
     // report what the barges refined — at most once a minute (and promptly after
     // an offline catch-up, since bargeLogAt starts at 0).
@@ -580,6 +583,7 @@ const Engine = (() => {
     chance -= Math.min(0.2, Math.max(0, factionRep(g, base.factionId)) * 0.01); // trusted = less scrutiny
     chance -= skillLevel(g, 'piloting') * 0.002;
     chance += galaxyEffects(g).heat || 0;                              // a cluster-wide crackdown ups the risk
+    chance += Math.min(0.25, (g.heat || 0) * 0.003);                  // a wanted pilot draws extra scrutiny
     chance = Math.max(0.05, Math.min(0.95, chance));
     if (Math.random() < chance) {
       let fine = 0;
@@ -587,6 +591,7 @@ const Engine = (() => {
       fine = Math.min(g.credits, Math.round(fine * 1.5));
       g.credits -= fine;
       addRep(g, base.factionId, -3);
+      addHeat(g, 10);                                                  // getting caught makes you more wanted
       logLine(g, `⚠️ ${base.name} customs seized your contraband and fined you ${fine} cr. ${fac.name} standing -3.`, 'bad');
     } else {
       logLine(g, `You ran your contraband past ${base.name} customs undetected.`, 'event');
@@ -612,6 +617,7 @@ const Engine = (() => {
     const fid = curBase(g).factionId;
     g.contractOffersEndsAt = Date.now() + 300 * 1000; // refresh every 5 min
     rollRumors(g);                                     // fresh cantina gossip with each board
+    generateOperation(g);                              // refresh the multi-step operation on offer
     // hostiles won't hire you
     if (hostileHere(g)) { g.contractOffers = []; return; }
     const fac = FACTIONS[fid];
@@ -707,6 +713,7 @@ const Engine = (() => {
     }
     g.credits += c.reward.credits; g.stats.credEarned += c.reward.credits;
     addRep(g, c.faction, c.reward.rep);
+    if (c.faction === 'redmaw') addHeat(g, 6); // running with the Maw makes you a marked pilot
     const sk = c.type === 'bounty' ? 'gunnery'
       : c.type === 'produce' ? (c.kind === 'refined' || c.kind === 'part' ? 'refining' : 'mining')
       : 'trade';
@@ -720,6 +727,106 @@ const Engine = (() => {
     if (!g.activeContract) return;
     logLine(g, `Abandoned contract: ${g.activeContract.title}.`, 'bad');
     g.activeContract = null;
+  }
+
+  // ===== FACTION OPERATIONS (repeatable multi-step jobs) =====================
+  function makeOpStep(g, fac, power) {
+    const r = Math.random();
+    if (r < 0.4) {
+      const res = fac.wants[Math.floor(Math.random() * fac.wants.length)];
+      const n = 6 + Math.floor(Math.random() * 8) + Math.floor(power / 3);
+      return { type: 'deliver', res, n, label: `Deliver ${n}× ${RESOURCES[res].name}` };
+    } else if (r < 0.7) {
+      const kinds = [...new Set(fac.wants.map(w => RESOURCES[w].kind))].filter(k => ['ore', 'refined', 'salvage', 'fuel', 'part'].includes(k));
+      const kind = kinds.length ? kinds[Math.floor(Math.random() * kinds.length)] : 'ore';
+      const n = 30 + Math.floor(Math.random() * 40) + power * 2;
+      return { type: 'produce', kind, n, label: `Produce ${n}× ${kind}` };
+    }
+    const n = 4 + Math.floor(Math.random() * 4) + Math.floor(power / 8);
+    return { type: 'kills', n, label: `Defeat ${n} hostiles` };
+  }
+  function generateOperation(g) {
+    if (g.operation) { g.operationOffer = null; return; } // don't replace an accepted op
+    const fid = curBase(g).factionId;
+    if (hostileHere(g)) { g.operationOffer = null; return; }
+    const fac = FACTIONS[fid];
+    const flavor = (typeof OPERATION_FLAVOR !== 'undefined' && OPERATION_FLAVOR[fid]) || { title: 'Operation', blurb: 'A multi-step job.' };
+    const power = Math.max(...Object.keys(SKILLS).map(k => skillLevel(g, k)));
+    const nSteps = 2 + (Math.random() < 0.6 ? 1 : 0);
+    const steps = []; for (let i = 0; i < nSteps; i++) steps.push(makeOpStep(g, fac, power));
+    const baseCredits = Math.round((1200 + power * 120) * (1 + nSteps * 0.4) * (galaxyEffects(g).contractMult || 1));
+    g.operationOffer = {
+      id: `op-${fid}-${++g.contractSeq}`, faction: fid, title: flavor.title, blurb: flavor.blurb, steps,
+      reward: { credits: baseCredits, rep: 3 + Math.floor(power / 12), xp: Math.round(baseCredits / 10) },
+    };
+  }
+  function operationStepValue(g, op, step) {
+    if (step.type === 'deliver') return g.cargo[step.res] || 0;
+    if (step.type === 'produce') return Math.max(0, producedKind(g, step.kind) - (op.produceBaseline || 0));
+    if (step.type === 'kills') return Math.max(0, g.stats.kills - (op.killBaseline || 0));
+    return 0;
+  }
+  function operationStatus(g) {
+    const op = g.operation; if (!op) return null;
+    if (op.awaitingPayoff) return { op, awaitingPayoff: true, step: op.steps.length, total: op.steps.length };
+    const step = op.steps[op.step];
+    const have = operationStepValue(g, op, step);
+    return { op, awaitingPayoff: false, step: op.step, total: op.steps.length, current: step, have, need: step.n, met: have >= step.n };
+  }
+  function acceptOperation(g) {
+    if (g.operation) return { ok: false, msg: 'Finish or abandon your current operation first.' };
+    const off = g.operationOffer;
+    if (!off) return { ok: false, msg: 'No operation on offer here.' };
+    g.operation = Object.assign({}, off, {
+      step: 0, killBaseline: g.stats.kills, awaitingPayoff: false,
+      produceBaseline: off.steps[0].type === 'produce' ? producedKind(g, off.steps[0].kind) : 0,
+    });
+    g.operationOffer = null;
+    logLine(g, `Accepted operation: ${off.title} (${FACTIONS[off.faction].name}).`, 'go');
+    return { ok: true };
+  }
+  function reportOperation(g) {
+    const op = g.operation; if (!op) return { ok: false, msg: 'No active operation.' };
+    const fac = FACTIONS[op.faction];
+    if (curBase(g).factionId !== op.faction) return { ok: false, msg: `Report at a ${fac.name} station.` };
+    if (op.awaitingPayoff) return { ok: false, msg: 'Choose your payoff to close the operation.' };
+    const step = op.steps[op.step];
+    const have = operationStepValue(g, op, step);
+    if (have < step.n) return { ok: false, msg: `Step not done: ${Math.floor(have)}/${step.n}.` };
+    if (step.type === 'deliver') { g.cargo[step.res] -= step.n; if (g.cargo[step.res] <= 0) delete g.cargo[step.res]; }
+    op.step++;
+    logLine(g, `Operation step done: ${step.label}. (${op.step}/${op.steps.length})`, 'good');
+    if (op.step >= op.steps.length) {
+      op.awaitingPayoff = true;
+      logLine(g, `📦 "${op.title}" is ready to close — pick your payoff in the Contracts tab.`, 'level');
+    } else {
+      const ns = op.steps[op.step];
+      if (ns.type === 'produce') op.produceBaseline = producedKind(g, ns.kind);
+      if (ns.type === 'kills') op.killBaseline = g.stats.kills;
+    }
+    return { ok: true };
+  }
+  function chooseOperationPayoff(g, id) {
+    const op = g.operation; if (!op || !op.awaitingPayoff) return { ok: false, msg: 'No payoff to choose.' };
+    const fac = FACTIONS[op.faction]; const r = op.reward;
+    if (id === 'credits') {
+      const c = Math.round(r.credits * 1.5);
+      g.credits += c; g.stats.credEarned += c; addRep(g, op.faction, 1);
+      logLine(g, `📦 Operation complete: ${op.title}. Payout taken: +${c} cr, ${fac.name} +1.`, 'level');
+    } else {
+      g.credits += r.credits; g.stats.credEarned += r.credits;
+      addRep(g, op.faction, r.rep * 2);
+      const lu = addSkillXp(g, 'trade', r.xp * 2);
+      logLine(g, `📦 Operation complete: ${op.title}. Standing taken: +${r.credits} cr, ${fac.name} +${r.rep * 2}, +${r.xp * 2} Trade XP.`, 'level');
+      if (lu) logLine(g, `★ ${SKILLS.trade.name} reached level ${lu}!`, 'level');
+    }
+    g.operation = null;
+    return { ok: true };
+  }
+  function abandonOperation(g) {
+    if (!g.operation) return;
+    logLine(g, `Abandoned operation: ${g.operation.title}.`, 'bad');
+    g.operation = null;
   }
 
   // ----- faction storylines -----
@@ -1001,6 +1108,9 @@ const Engine = (() => {
     // crew wages drawn from the run's takings
     payCrewWages(g);
     maybeCrewBark(g);        // a little character from whoever's aboard
+
+    // bounty-hunter interdiction: a wanted pilot gets hunted between runs
+    maybeBountyHunter(g, stats, beh);
 
     // a salvage-type run may turn up a broken ship or sealed find to investigate
     maybeTriggerEncounter(g, act);
@@ -1460,6 +1570,7 @@ const Engine = (() => {
     g.cargo[id] -= qty; if (g.cargo[id] <= 0) delete g.cargo[id];
     g.credits += total; g.stats.credEarned += total;
     addSkillXp(g, 'trade', Math.ceil(total / 25));
+    if (res.illegal) addHeat(g, 3 + qty * 0.3); // fencing contraband raises your profile
     logLine(g, `Sold ${qty}× ${res.name} for ${total} cr.`, 'good');
     return { ok: true };
   }
@@ -1498,8 +1609,97 @@ const Engine = (() => {
     g.credits -= total;
     g.cargo[id] = (g.cargo[id] || 0) + qty;
     addSkillXp(g, 'trade', Math.ceil(total / 50));
+    addHeat(g, 2 + qty * 0.4); // dealing on the black market gets you noticed
     logLine(g, `Bought ${qty}× ${RESOURCES[id].name} on the black market for ${total} cr.`, 'go');
     return { ok: true };
+  }
+
+  // ===== HEAT / NOTORIETY ====================================================
+  function clampHeat(v) { return Math.max(0, Math.min(100, v)); }
+  function addHeat(g, n) { g.heat = clampHeat((g.heat || 0) + n); }
+  function heatTier(g) {
+    const h = g.heat || 0;
+    return (typeof HEAT_TIERS !== 'undefined' && HEAT_TIERS.find(t => h >= t.min)) || { label: 'Unknown', icon: '😶', min: 0 };
+  }
+  // heat cools over time — faster while lying low at lawless ports
+  function decayHeat(g, now) {
+    if (typeof g.heatLast !== 'number') g.heatLast = now;
+    if (!g.heat) { g.heatLast = now; return; }
+    const mins = (now - g.heatLast) / 60000;
+    if (mins <= 0) return;
+    const fac = FACTIONS[curBase(g).factionId];
+    const rate = (fac && fac.lawful === false) ? 2.5 : 1.2; // heat lost per minute
+    g.heat = clampHeat(g.heat - mins * rate);
+    g.heatLast = now;
+  }
+  function bountyHunterEnemy(heat) {
+    return {
+      name: 'Bounty Hunter', hull: 90 + Math.round(heat * 2.2), armor: 12 + Math.round(heat * 0.25),
+      weapon: 12 + Math.round(heat * 0.22), evasion: 9, shield: heat >= 60 ? 80 : 0,
+      abilities: heat >= 75 ? ['alpha', 'evasive'] : (heat >= 50 ? ['evasive'] : []),
+    };
+  }
+
+  // ===== OUTPOSTS (player-owned passive base) ================================
+  function outpostTier(g) { return (g.outpost && g.outpost.tier) || 0; }
+  function outpostDef(g) { const t = outpostTier(g); return t > 0 ? OUTPOST_TIERS[t - 1] : null; }
+  function accrueOutpost(g) {
+    if (!g.outpost || !g.outpost.tier) return;
+    const now = Date.now();
+    if (typeof g.outpost.lastAccrue !== 'number') g.outpost.lastAccrue = now;
+    let hours = (now - g.outpost.lastAccrue) / 3600000;
+    if (hours > FLEET_OFFLINE_CAP_HOURS) hours = FLEET_OFFLINE_CAP_HOURS;
+    if (hours > 0) {
+      const def = OUTPOST_TIERS[g.outpost.tier - 1];
+      g.outpost.pendingCr = (g.outpost.pendingCr || 0) + def.rate * hours * bonus(g, 'fleet');
+    }
+    g.outpost.lastAccrue = now;
+  }
+  function buildOutpost(g) {
+    if (outpostTier(g) > 0) return { ok: false, msg: 'You already run an outpost.' };
+    const def = OUTPOST_TIERS[0];
+    if (g.credits < def.cost) return { ok: false, msg: 'Not enough credits.' };
+    g.credits -= def.cost;
+    g.outpost = { tier: 1, lastAccrue: Date.now(), pendingCr: 0 };
+    logLine(g, `Built a ${def.name}! It earns ${def.rate} cr/hr while you fly.`, 'good');
+    return { ok: true };
+  }
+  function upgradeOutpost(g) {
+    const t = outpostTier(g);
+    if (t <= 0) return { ok: false, msg: 'Build an outpost first.' };
+    if (t >= OUTPOST_TIERS.length) return { ok: false, msg: 'Your outpost is fully upgraded.' };
+    const next = OUTPOST_TIERS[t];
+    if (g.credits < next.cost) return { ok: false, msg: 'Not enough credits.' };
+    accrueOutpost(g);
+    g.credits -= next.cost; g.outpost.tier = t + 1;
+    logLine(g, `Upgraded your outpost to a ${next.name} — now ${next.rate} cr/hr.`, 'good');
+    return { ok: true };
+  }
+  function collectOutpost(g) {
+    accrueOutpost(g);
+    const amt = Math.floor((g.outpost && g.outpost.pendingCr) || 0);
+    if (amt <= 0) return { ok: false, msg: 'Nothing to collect from the outpost yet.' };
+    g.outpost.pendingCr -= amt; g.credits += amt; g.stats.credEarned += amt;
+    logLine(g, `Collected ${amt} cr from your outpost.`, 'good');
+    return { ok: true };
+  }
+
+  // a wanted pilot gets hunted between runs (chance + strength scale with heat)
+  function maybeBountyHunter(g, stats, beh) {
+    const heat = g.heat || 0;
+    if (heat < 40) return;
+    if (Math.random() >= Math.min(0.4, (heat - 30) / 180)) return;
+    const c = runCombat(g, stats, bountyHunterEnemy(heat), beh);
+    if (c.win) {
+      g.stats.kills++;
+      const bounty = 200 + Math.round(heat * 6);
+      g.credits += bounty; g.stats.credEarned += bounty;
+      addHeat(g, -20);
+      logLine(g, `💀 A bounty hunter jumped you — and lost. ${c.log} You claimed their ship (+${bounty} cr); your name cooled a little.`, 'good');
+    } else {
+      addHeat(g, -5);
+      logLine(g, `💀 A bounty hunter ran you down — ${c.log} You shook them, barely.`, 'bad');
+    }
   }
 
   // ----- repair & refuel -----
@@ -1899,6 +2099,9 @@ const Engine = (() => {
     activeGalaxyEvent,
     blackMarketOpen, blackMarketGoods, buyBlackMarket,
     assignCrew, recallCrewAssignment,
+    heatTier,
+    outpostTier, outpostDef, buildOutpost, upgradeOutpost, collectOutpost,
+    operationStatus, acceptOperation, reportOperation, chooseOperationPayoff, abandonOperation,
     logLine,
   };
 })();
