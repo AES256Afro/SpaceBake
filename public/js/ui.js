@@ -127,6 +127,7 @@ const UI = (() => {
 
   function renderDistress() {
     const sc = DISTRESS.find(s => s.id === g.pendingDistress.scenario);
+    if (!sc) { g.pendingDistress = null; return el('div'); } // unknown scenario: self-heal, don't lock
     const card = el('div', 'banner-card distress');
     card.innerHTML = `<div class="banner-head"><strong>📡 ${sc.title}</strong></div><p class="distress-text">${sc.text}</p>`;
     const choices = el('div', 'distress-choices');
@@ -143,6 +144,7 @@ const UI = (() => {
   // some of which gamble on a good / neutral / bad outcome (a ⚠️ flags risk).
   function renderEncounter() {
     const sc = ENCOUNTERS.find(s => s.id === g.pendingEncounter.scenario);
+    if (!sc) { g.pendingEncounter = null; return el('div'); } // unknown scenario: self-heal, don't lock
     const card = el('div', 'banner-card encounter');
     card.innerHTML = `<div class="banner-head"><strong>🛸 ${sc.title}</strong><span class="muted">Salvage find</span></div><p class="distress-text">${sc.text}</p>`;
     const choices = el('div', 'distress-choices');
