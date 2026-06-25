@@ -48,6 +48,7 @@ const Engine = (() => {
     g.activeShip = 'shuttle'; g.ownedShips = ['shuttle'];
     g.fittings = { shuttle: { reactor: ['reactor_mk1'], engine: ['engine_mk1'], shield: [], weapon: ['laser_mk1'], mining: ['mininglaser_1'], utility: [], cargo: ['cargo_mk1'] } };
     g.systems = freshSystems();
+    g.shipCond = { shuttle: g.systems };
     g.storage = {}; g.cargo = {};
     g.mission = null; g.refineJob = null; g.pendingDistress = null; g.pendingEncounter = null;
     g.mode = 'balanced'; g.behavior = 'defensive'; g.fleeAt = 40; g.repairAt = 50;
@@ -709,7 +710,6 @@ const Engine = (() => {
     // partial-failure factor if recalled early
     let progress = 1;
     if (m.recalled) {
-      progress = Math.max(0.1, 1 - (m.endsAt - Date.now() + 0) / (m.duration * 1000));
       progress = Math.min(1, Math.max(0.15, (Date.now() - m.startedAt) / (m.duration * 1000)));
     }
 
@@ -945,7 +945,12 @@ const Engine = (() => {
     // runWaves(). Previously this sat inside `if (r.win)`, so losing or fleeing a
     // fight cost no hull at all, making reckless engagements consequence-free.
     const taken = stats.hull - r.hp;
-    if (taken > 0) g.systems.hull = Math.max(0, g.systems.hull - Math.round(taken / stats.maxHull * 60));
+    if (taken > 0) {
+      // Losing/fleeing a single fight still costs hull, but at a reduced rate so
+      // it stings without being punishing (wins remain at the original cost).
+      const lossFactor = r.win ? 1 : 0.5;
+      g.systems.hull = Math.max(0, g.systems.hull - Math.round(taken / stats.maxHull * 60 * lossFactor));
+    }
     if (r.win) addSkillXp(g, 'gunnery', 15);
     return { win: r.win, log: r.log };
   }
@@ -1294,6 +1299,7 @@ const Engine = (() => {
     if (g.credits < cost) return { ok: false, msg: `Repair costs ${cost} cr — you can't afford it.` };
     g.credits -= cost;
     g.systems = freshSystems();
+    if (g.shipCond) g.shipCond[g.activeShip] = g.systems; // keep this ship's stored condition in sync
     logLine(g, `Repaired all systems for ${cost} cr.`, 'good');
     // a fully-patched hull re-arms an auto-route that paused for damage
     if (g.autoRepeatPaused) {
@@ -1318,6 +1324,7 @@ const Engine = (() => {
   // ----- shipyard / outfitting -----
   function buyModule(g, modId) {
     const m = MODULES[modId];
+    if (!m) return { ok: false, msg: 'Unknown module.' };
     if (g.credits < m.cost) return { ok: false, msg: 'Not enough credits.' };
     g.credits -= m.cost;
     g.storage[modId] = (g.storage[modId] || 0) + 1;
@@ -1326,6 +1333,7 @@ const Engine = (() => {
   }
   function fitModule(g, modId) {
     const m = MODULES[modId];
+    if (!m) return { ok: false, msg: 'Unknown module.' };
     const fit = g.fittings[g.activeShip];
     const ship = SHIPS[g.activeShip];
     const slotCap = ship.slots[m.slot] || 0;
@@ -1358,7 +1366,7 @@ const Engine = (() => {
     }
     fit[slot].splice(idx, 1);
     g.storage[modId] = (g.storage[modId] || 0) + 1;
-    logLine(g, `Removed ${md.name}.`);
+    logLine(g, `Removed ${md ? md.name : modId}.`); // tolerate a stale/unknown module id
     return { ok: true };
   }
   function buyShip(g, shipId) {
@@ -1370,6 +1378,8 @@ const Engine = (() => {
     // default empty fitting
     g.fittings[shipId] = { reactor: ['reactor_mk1'], engine: ['engine_mk1'], shield: [], weapon: [], mining: [], utility: [], cargo: ['cargo_mk1'] };
     g.storage['reactor_mk1'] = (g.storage['reactor_mk1'] || 0); // bookkeeping
+    if (!g.shipCond || typeof g.shipCond !== 'object') g.shipCond = {};
+    g.shipCond[shipId] = freshSystems();                  // a freshly-bought ship arrives pristine
     logLine(g, `Purchased ${ship.name}!`, 'good');
     return { ok: true };
   }
@@ -1378,8 +1388,13 @@ const Engine = (() => {
     if (g.mission) return { ok: false, msg: 'Cannot switch ships mid-mission.' };
     const cap = cargoCapOf(g, shipId);
     if (cargoUsed(g) > cap) return { ok: false, msg: `The ${SHIPS[shipId].name}'s hold (${cap}) can't fit your ${cargoUsed(g)} cargo — sell or offload first.` };
+    // Per-ship condition: stash the ship we're leaving and restore the one we're
+    // boarding, so swapping ships no longer free-repairs (the old exploit).
+    if (!g.shipCond || typeof g.shipCond !== 'object') g.shipCond = {};
+    g.shipCond[g.activeShip] = g.systems;                 // persist current damage
     g.activeShip = shipId;
-    g.systems = freshSystems();
+    g.systems = g.shipCond[shipId] || freshSystems();     // restore prior damage (or pristine if never flown)
+    g.shipCond[shipId] = g.systems;                       // keep active condition === stored condition
     logLine(g, `Now flying the ${SHIPS[shipId].name}.`);
     return { ok: true };
   }

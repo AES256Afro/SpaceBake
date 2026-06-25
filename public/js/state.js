@@ -31,6 +31,8 @@ function newGame() {
     },
     // subsystem condition 0..100 (% health) for the active ship
     systems: freshSystems(),
+    // per-ship subsystem condition for non-active owned ships (active lives in `systems`)
+    shipCond: {},
     // owned loose modules (not fitted): moduleId -> count
     storage: { shield_mk1: 0 },
     // resources held in cargo: resourceId -> qty
@@ -155,6 +157,14 @@ function loadGame() {
     }
     if (!g.systems || typeof g.systems !== 'object') g.systems = freshSystems();
     else for (const sk of SHIP_SYSTEMS) if (typeof g.systems[sk] !== 'number') g.systems[sk] = 100;
+    // ---- per-ship condition (so swapping ships no longer free-repairs) ----
+    // g.systems stays authoritative for the active ship; g.shipCond holds the rest.
+    if (!g.shipCond || typeof g.shipCond !== 'object') g.shipCond = {};
+    g.shipCond[g.activeShip] = g.systems;
+    for (const sid of g.ownedShips) {
+      if (!g.shipCond[sid] || typeof g.shipCond[sid] !== 'object') g.shipCond[sid] = freshSystems();
+      else for (const sk of SHIP_SYSTEMS) if (typeof g.shipCond[sid][sk] !== 'number') g.shipCond[sid][sk] = 100;
+    }
     g.toasts = []; // transient; never replay saved toasts
     return g;
   } catch (e) { return null; }

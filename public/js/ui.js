@@ -62,7 +62,7 @@ const UI = (() => {
       ['💰', `${fmt(g.credits)} cr`, 'Credits'],
       ['⛽', `${fmt(g.fuel)}`, 'Fuel'],
       ['📦', `${fmt(cargoUsed(g))}/${fmt(stats.cargo)}`, 'Cargo'],
-      ['🚀', SHIPS[g.activeShip].name, 'Active ship'],
+      ['🚀', (SHIPS[g.activeShip] || SHIPS.shuttle).name, 'Active ship'],
       ['🌌', curSystem(g).name, 'Current system'],
       ['🛰️', curBase(g).name, 'Docked starbase'],
     ];
@@ -712,7 +712,7 @@ const UI = (() => {
   function renderShip() {
     const wrap = el('div', 'panel');
     const stats = shipStats(g);
-    const ship = SHIPS[g.activeShip];
+    const ship = SHIPS[g.activeShip] || SHIPS.shuttle;
 
     // ship interior deck map (compartments + stationed crew)
     wrap.appendChild(el('h3', null, `🛸 ${ship.name} — Deck Plan`));
@@ -759,6 +759,7 @@ const UI = (() => {
       block.appendChild(el('div', 'slot-label', `${slotIcon(slot)} ${slot.toUpperCase()} (${fitted.length}/${cap})`));
       fitted.forEach((modId, idx) => {
         const m = MODULES[modId];
+        if (!m) return; // tolerate a stale/unknown module id in a save
         const row = el('div', 'fit-row');
         row.innerHTML = `<span>${m.name}</span><span class="muted">${m.power ? '+' + m.power + 'pw' : (m.draw ? m.draw + 'pw' : '')} ${m.heat ? (m.heat > 0 ? '+' : '') + m.heat + '🔥' : ''}</span>`;
         const x = el('button', 'btn tiny', '✕');
@@ -776,6 +777,7 @@ const UI = (() => {
     if (!store.length) right.appendChild(el('p', 'muted', 'No spare modules. Buy some at the Station tab.'));
     for (const [modId, count] of store) {
       const m = MODULES[modId];
+      if (!m) continue; // tolerate a stale/unknown module id in a save
       const row = el('div', 'fit-row');
       row.innerHTML = `<span>${m.name} ×${count}</span><span class="muted">${m.slot}</span>`;
       const b = el('button', 'btn tiny', 'Fit');
@@ -931,7 +933,7 @@ const UI = (() => {
     }
 
     // crew
-    wrap.appendChild(el('h3', null, `🧑‍🚀 Crew — ${crewAboard(g).length}/${slots} berths aboard the ${SHIPS[g.activeShip].name}`));
+    wrap.appendChild(el('h3', null, `🧑‍🚀 Crew — ${crewAboard(g).length}/${slots} berths aboard the ${(SHIPS[g.activeShip] || SHIPS.shuttle).name}`));
     wrap.appendChild(el('p', 'muted', `Wages per mission: ${fmt(crewWage(g))} cr. Only the first ${slots} crew fit this ship's berths and apply their bonuses; the rest stay benched.`));
     if (!g.crew.length) {
       wrap.appendChild(el('p', 'muted', 'No crew signed on yet. Hire specialists below.'));
