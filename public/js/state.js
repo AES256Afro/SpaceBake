@@ -7,7 +7,7 @@ function newGame() {
   return {
     version: 1,
     credits: 600,
-    reputation: { freebelt: 0, concord: 0, redmaw: 0 }, // standing per faction
+    reputation: Object.fromEntries(Object.keys(FACTIONS).map(f => [f, 0])), // standing per faction (all factions)
     fuel: 40,
     currentSystem: 'kharon',        // the system you're in
     currentBase: 'kharon_station',  // the starbase you're docked at
@@ -141,6 +141,20 @@ function loadGame() {
     if (typeof g.renown !== 'number') g.renown = 0;
     if (typeof g.renownClaimed !== 'number') g.renownClaimed = 0;
     if (typeof g.prestige !== 'number') g.prestige = 0;
+    // ---- validate fields shipStats()/combat read every frame: a bad value here
+    // throws on every render/tick, which renders a blank, frozen UI. ----
+    if (!MODES[g.mode]) g.mode = 'balanced';
+    if (!BEHAVIORS[g.behavior]) g.behavior = 'defensive';
+    if (typeof g.fleeAt !== 'number') g.fleeAt = 40;
+    if (!SHIPS[g.activeShip]) g.activeShip = 'shuttle';
+    if (!Array.isArray(g.ownedShips) || !g.ownedShips.length) g.ownedShips = ['shuttle'];
+    if (!g.ownedShips.includes(g.activeShip)) g.ownedShips.push(g.activeShip);
+    if (!g.fittings || typeof g.fittings !== 'object') g.fittings = {};
+    if (!g.fittings[g.activeShip]) {
+      g.fittings[g.activeShip] = { reactor: [], engine: [], shield: [], weapon: [], mining: [], utility: [], cargo: [] };
+    }
+    if (!g.systems || typeof g.systems !== 'object') g.systems = freshSystems();
+    else for (const sk of SHIP_SYSTEMS) if (typeof g.systems[sk] !== 'number') g.systems[sk] = 100;
     g.toasts = []; // transient; never replay saved toasts
     return g;
   } catch (e) { return null; }

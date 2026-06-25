@@ -1093,7 +1093,9 @@ const Engine = (() => {
   function resolveDistress(g, choiceIdx) {
     if (!g.pendingDistress) return;
     const scenario = DISTRESS.find(s => s.id === g.pendingDistress.scenario);
+    if (!scenario) { g.pendingDistress = null; return; }   // stale/unknown id — self-heal instead of throwing
     const choice = scenario.choices[choiceIdx];
+    if (!choice) return;                                   // out-of-range pick — ignore, keep the card up
     const stats = shipStats(g);
     const logs = [];
 
