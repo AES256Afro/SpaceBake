@@ -914,6 +914,20 @@ const NEWS_ORGS = [
   'Long Range Couriers', 'Belt Reclamation Authority', 'Free Clinics Network', 'Stellar Heritage Trust',
   'Outer Colonies Assembly', "Hydro Workers' Union", 'Order of the Drifting Lantern', 'Deep Range Chaplaincy',
 ];
+// Recurring public figures — a small standing cast the news (and cantina rumours)
+// keep returning to, so the cluster feels inhabited by people, not just events.
+// newsContext() pulls one of these in place of a random name a good fraction of
+// the time, so the same names recur across the whole feed.
+const NAMED_CHARACTERS = [
+  { name: 'Surok Vane',      title: 'Warlord' },      // Red Maw strongman
+  { name: 'Dr. Besa Okafor', title: 'Doctor' },       // Xenowatch Concord xenologist
+  { name: 'Halvard Crane',   title: 'Director' },      // Helix Combine chair
+  { name: 'Mira Solano',     title: 'Marshal' },       // Freebelt Union marshal
+  { name: 'Petra Voss',      title: 'Captain' },       // famed belt racer
+  { name: 'Idris Bako',      title: 'Councillor' },     // Commonwealth organiser
+  { name: 'Sable',           title: 'Captain' },       // smuggler of legend
+  { name: 'Oksana Reyes',    title: 'Administrator' },  // Meridian dock authority
+];
 const NEWS_TEMPLATES = {
   world: { icon: '🌌', lines: [
     'Long-range relays report a spike in traffic through {system}; haulers cite strong demand for {resource}.',
@@ -1023,6 +1037,10 @@ const NEWS_TEMPLATES = {
     'Beloved dockmaster {person} of {system} steps down to a fond farewell.',
     '{title} {person} donates {price} credits to the {system} relief fund.',
     '{title} {person} hands command of {ship} to first officer {person2}.',
+    '{title} {person} resurfaces in {system} after months out of contact, saying little.',
+    'Profile: how {title} {person} became the most talked-about name on the frontier.',
+    'Speculation mounts over {title} {person}\'s next move after a quiet season.',
+    '{title} {person} is spotted dining with {person2} at {system} — tongues are wagging.',
   ] },
   event: { icon: '🎉', lines: [
     "The {system} Founders' Festival draws record crowds this cycle.",
