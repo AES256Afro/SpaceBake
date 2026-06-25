@@ -58,11 +58,14 @@ body::after {
 @keyframes twinkle { 0%,100% { opacity: .5; } 50% { opacity: .25; } }
 #header, #mission-banner, #tabs, #body, #logwrap { position: relative; z-index: 1; }
 
-/* Sticky top chrome: header + ticker + banner + tabs pin together as one unit so
-   the tab bar is always on top and tappable — it can't scroll under the tall,
-   wrapping header on tablets/phones and swallow taps. Opaque background so body
-   content scrolling beneath doesn't bleed through the gaps between tab buttons. */
-#topchrome { position: sticky; top: 0; z-index: 20; background: var(--bg); }
+/* Top chrome: header + ticker + banner + tabs grouped so they share an opaque
+   background and a stacking context (tabs above body content, never tap-swallowed).
+   NOT sticky: a previous version pinned this whole block, but on shorter viewports
+   the combined chrome (wrapping header + ticker + mission banner + wrapping tabs)
+   is taller than the screen, which parked the tab bar below the fold where a sticky
+   element can't be scrolled into view — making tabs unreachable. Letting it scroll
+   normally keeps the tabs always reachable and clickable on every device. */
+#topchrome { position: relative; z-index: 20; background: var(--bg); }
 
 /* header */
 #header {

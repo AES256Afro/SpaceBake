@@ -88,8 +88,36 @@ const UI = (() => {
 
 
   // ---------- mission banner ----------
+  // Tracks what the banner currently shows. tickRender() calls this every
+  // animation frame; if the structure is unchanged we update only the live
+  // countdown/progress IN PLACE rather than rebuilding the card. Rebuilding the
+  // DOM every frame destroyed the Recall / Repair / choice buttons mid-tap on
+  // touch devices (iPad), so the tap landed on a node that no longer existed and
+  // never registered. Keeping the nodes stable lets taps complete.
+  let bannerState = { key: null, fill: null, time: null };
+  function bannerKey() {
+    if (g.pendingDistress) return 'D:' + g.pendingDistress.scenario;
+    if (g.pendingEncounter) return 'E:' + g.pendingEncounter.scenario;
+    if (g.mission) return 'M:' + g.mission.id + ':' + g.mission.type;
+    if (g.autoRepeatPaused) return 'P';
+    return 'none';
+  }
   function renderMissionBanner() {
     const host = $('#mission-banner');
+    const key = bannerKey();
+    // Same structure as last frame: refresh only the running mission's progress
+    // and clock in place — never rebuild, so the banner's buttons survive a tap.
+    if (key === bannerState.key) {
+      if (g.mission && bannerState.fill && bannerState.time) {
+        const left = timeLeft(g.mission.endsAt);
+        const pct = Math.min(100, Math.round((1 - left / g.mission.duration) * 100));
+        bannerState.fill.style.width = pct + '%';
+        bannerState.time.textContent = `${left}s remaining`;
+      }
+      return;
+    }
+    // Structure changed — rebuild once, then cache the live nodes for in-place updates.
+    bannerState = { key, fill: null, time: null };
     host.innerHTML = '';
     if (g.pendingDistress) {
       host.classList.remove('hidden');
@@ -130,6 +158,8 @@ const UI = (() => {
     btn.onclick = () => { Engine.recallMission(g); refresh(); };
     card.appendChild(btn);
     host.appendChild(card);
+    bannerState.fill = card.querySelector('.progress-fill');
+    bannerState.time = card.querySelector('.banner-head span');
   }
 
   // shown in place of the progress bar when the idle loop pauses for ship damage,
