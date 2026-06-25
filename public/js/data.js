@@ -230,28 +230,28 @@ const ACTIVITIES = {
     duration: 25, fuel: 2, risk: 'Low', xp: 16,
     desc: 'Iron, nickel and ice. Safe and slow.',
     drops: [ ['iron_ore', 3, 7], ['nickel_ore', 1, 4], ['ice', 1, 5] ],
-    events: ['micrometeor', 'rich_vein'],
+    events: ['micrometeor', 'rich_vein', 'drifting_chunk', 'belter_tipoff'],
   },
   mine_dense: {
     type: 'mine', name: 'Dense Titanium Belt', skill: 'mining', reqLevel: 12,
     duration: 45, fuel: 5, risk: 'Medium', xp: 40,
     desc: 'Titanium and copper, with a chance at crystals.',
     drops: [ ['titanium_ore', 2, 6], ['copper_ore', 1, 4], ['crystal_shard', 0, 2] ],
-    events: ['micrometeor', 'rich_vein', 'pirate_scan'],
+    events: ['micrometeor', 'rich_vein', 'pirate_scan', 'belter_tipoff'],
   },
   mine_crystal: {
     type: 'mine', name: 'Crystal Field', skill: 'mining', reqLevel: 25,
     duration: 60, fuel: 7, risk: 'Medium', xp: 70,
     desc: 'Lens-grade crystal shards. Lucrative.',
     drops: [ ['crystal_shard', 2, 6], ['copper_ore', 1, 3] ],
-    events: ['rich_vein', 'pirate_scan', 'sensor_ghost'],
+    events: ['rich_vein', 'pirate_scan', 'sensor_ghost', 'stellar_aurora'],
   },
   mine_radiation: {
     type: 'mine', name: 'Radiation Pocket', skill: 'mining', reqLevel: 40,
     duration: 80, fuel: 10, risk: 'High', xp: 120,
     desc: 'Uranium ore near a radiation belt. Cooks your reactor.',
     drops: [ ['uranium_ore', 2, 5], ['titanium_ore', 1, 4] ],
-    events: ['overheat', 'rich_vein', 'pirate_scan'],
+    events: ['overheat', 'rich_vein', 'pirate_scan', 'cold_gas_cloud'],
     heatBonus: 18,
   },
 
@@ -262,7 +262,7 @@ const ACTIVITIES = {
     desc: 'Pick off lone, lightly-armed raiders.',
     enemy: { name: 'Pirate Skiff', hull: 60, armor: 5, weapon: 8, evasion: 6 },
     drops: [ ['scrap', 2, 5], ['ammo', 1, 6], ['hydrogen_fuel', 0, 3] ],
-    events: ['ambush', 'rich_vein'],
+    events: ['ambush', 'rich_vein', 'convoy_medic'],
   },
   patrol_pack: {
     type: 'combat', name: 'Break a Pirate Pack', skill: 'gunnery', reqLevel: 18,
@@ -270,7 +270,7 @@ const ACTIVITIES = {
     desc: 'A coordinated raider wing. Better loot, real bite.',
     enemy: { name: 'Red Maw Wing', hull: 160, armor: 20, weapon: 18, evasion: 8, abilities: ['evasive'] },
     drops: [ ['scrap', 3, 7], ['damaged_module', 0, 2], ['contraband', 0, 1], ['ammo', 2, 6] ],
-    events: ['ambush', 'reactor_strain'],
+    events: ['ambush', 'reactor_strain', 'convoy_medic'],
   },
   hunt_elite: {
     type: 'combat', name: 'Hunt an Elite Raider', skill: 'gunnery', reqLevel: 30,
@@ -311,8 +311,8 @@ const ACTIVITIES = {
     duration: 35, fuel: 3, risk: 'Low', xp: 20,
     desc: 'Strip floating wreckage for scrap and parts.',
     drops: [ ['scrap', 3, 8], ['wiring', 1, 5], ['damaged_module', 0, 2] ],
-    events: ['pirate_scan', 'lucky_find', 'floating_cache', 'derelict_marker'],
-    encounters: ['drifting_hulk', 'mystery_container', 'unstable_wreck'],
+    events: ['pirate_scan', 'lucky_find', 'floating_cache', 'derelict_marker', 'generous_trader'],
+    encounters: ['drifting_hulk', 'mystery_container', 'unstable_wreck', 'sealed_vault', 'hazard_pod'],
     encChance: 0.4,
   },
   salvage_derelict: {
@@ -321,7 +321,7 @@ const ACTIVITIES = {
     desc: 'A dead industrial hulk. Pirates like to lurk here.',
     drops: [ ['scrap', 4, 9], ['wiring', 2, 6], ['damaged_module', 1, 3], ['black_box', 0, 1] ],
     events: ['ambush', 'lucky_find', 'sensor_ghost', 'corpse_starship'],
-    encounters: ['drifting_hulk', 'cracked_reactor', 'ghost_ship', 'pirate_stash'],
+    encounters: ['drifting_hulk', 'cracked_reactor', 'ghost_ship', 'pirate_stash', 'warm_reactor', 'marooned_ai'],
     encChance: 0.55,
   },
   // A dedicated scavenging run -- light guaranteed loot, but almost always turns
@@ -331,8 +331,8 @@ const ACTIVITIES = {
     duration: 30, fuel: 3, risk: 'Variable', xp: 18,
     desc: "Drift a graveyard of broken ships and sealed crates. You never know what you'll find -- that's the point.",
     drops: [ ['scrap', 1, 4], ['wiring', 0, 3] ],
-    events: ['derelict_marker', 'floating_cache', 'salvage_windfall', 'corpse_starship', 'intact_canister'],
-    encounters: ['drifting_hulk', 'cracked_reactor', 'ghost_ship', 'pirate_stash', 'unstable_wreck', 'mystery_container'],
+    events: ['derelict_marker', 'floating_cache', 'salvage_windfall', 'corpse_starship', 'intact_canister', 'generous_trader', 'stellar_aurora'],
+    encounters: ['drifting_hulk', 'cracked_reactor', 'ghost_ship', 'pirate_stash', 'unstable_wreck', 'mystery_container', 'smuggler_cache', 'yacht_graveyard', 'marooned_ai', 'warm_reactor'],
     encChance: 0.92,
   },
 
@@ -352,14 +352,14 @@ const ACTIVITIES = {
     duration: 30, fuel: 2, risk: 'Low', xp: 18,
     desc: 'Dip into a gas giant’s upper atmosphere and scoop hydrogen and ice.',
     drops: [ ['hydrogen_fuel', 2, 6], ['ice', 1, 3] ],
-    events: ['overheat', 'sensor_ghost'],
+    events: ['overheat', 'sensor_ghost', 'cold_gas_cloud'],
   },
   explore_caves: {
     type: 'mine', name: 'Spelunk Crystal Caves', skill: 'mining', reqLevel: 8,
     duration: 45, fuel: 3, risk: 'Medium', xp: 42,
     desc: 'Rappel into cave systems threaded with crystal and copper veins.',
     drops: [ ['crystal_shard', 1, 4], ['copper_ore', 2, 5] ],
-    events: ['micrometeor', 'rich_vein'],
+    events: ['micrometeor', 'rich_vein', 'drifting_chunk'],
   },
   explore_ruins: {
     type: 'salvage', name: 'Explore Ancient Ruins', skill: 'salvage', reqLevel: 5,
@@ -367,14 +367,14 @@ const ACTIVITIES = {
     desc: 'Pick through silent ruins on a dead world. Old tech, old dangers.',
     drops: [ ['black_box', 0, 1], ['damaged_module', 1, 3], ['wiring', 2, 5] ],
     events: ['lucky_find', 'sensor_ghost'],
-    encounters: ['drifting_hulk', 'mystery_container'], encChance: 0.4,
+    encounters: ['drifting_hulk', 'mystery_container', 'sealed_vault', 'marooned_ai'], encChance: 0.4,
   },
   surface_dig: {
     type: 'mine', name: 'Surface Mining Dig', skill: 'mining', reqLevel: 1,
     duration: 35, fuel: 2, risk: 'Low', xp: 24,
     desc: 'Set down rovers and strip an exposed ore seam.',
     drops: [ ['iron_ore', 4, 9], ['nickel_ore', 1, 4], ['copper_ore', 0, 3] ],
-    events: ['micrometeor', 'rich_vein'],
+    events: ['micrometeor', 'rich_vein', 'drifting_chunk', 'belter_tipoff'],
   },
 };
 
@@ -1234,6 +1234,31 @@ const EVENTS = {
     name: 'Intact canister',
     apply: (r) => { const fuel = Math.random() < 0.5; r.bonusLoot.push(fuel ? ['hydrogen_fuel', 2] : ['ammo', 3]); return fuel ? 'Recovered a sealed fuel canister.' : 'Recovered a crate of usable ammo.'; }
   },
+  // ----- positive / neutral events — runs aren't only punishing -----
+  convoy_medic: {
+    name: 'Convoy medic',
+    apply: (r) => { const h = 8 + Math.floor(Math.random()*10); r.g.systems.hull = Math.min(100, (r.g.systems.hull ?? 100) + h); return `A passing convoy's medic team patched your hull plating (+${h} hull).`; }
+  },
+  stellar_aurora: {
+    name: 'Stellar aurora',
+    apply: (r) => { r.lootMult *= 1.2; return 'A shimmering aurora lit up the work — morale soared and the crew dug in. Yield up.'; }
+  },
+  cold_gas_cloud: {
+    name: 'Cold gas cloud',
+    apply: (r) => { r.heat -= 18; return 'You coasted through a cold gas cloud and bled off reactor heat.'; }
+  },
+  generous_trader: {
+    name: 'Generous trader',
+    apply: (r) => { const f = 2 + Math.floor(Math.random()*4); r.g.fuel += f; return `A passing trader spared you ${f} units of hydrogen, no charge.`; }
+  },
+  drifting_chunk: {
+    name: 'Drifting ore chunk',
+    apply: (r) => { const ore = Math.random() < 0.5 ? 'iron_ore' : 'ice'; const q = 2 + Math.floor(Math.random()*3); r.bonusLoot.push([ore, q]); return 'Scooped a fat chunk of drifting material right out of your path.'; }
+  },
+  belter_tipoff: {
+    name: "Belter's tip-off",
+    apply: (r) => { r.lootMult *= 1.25; return 'A veteran belter on the open channel pointed you to the good seam. Yield up.'; }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -1443,4 +1468,125 @@ const ENCOUNTERS = [
       { label: 'Toss it back', result: { xp: 4, log: "Whatever it was, it's someone else's problem now." } },
     ],
   },
+  {
+    id: 'sealed_vault',
+    title: 'Sealed Strongroom',
+    text: 'Behind a buckled blast door, a corporate strongroom holds its breath. A keypad blinks red — and the manifest stencilled on the hull hints at what it guards.',
+    choices: [
+      { label: 'Brute-force the lock', skill: 'engineering', outcomes: [
+        { good: true, p: 3, credits: [260, 480], items: [['reactor_part', 1], ['wiring', 3]], xp: 55, log: 'The bolts gave one by one. Inside: a bonded reactor part and a tidy slip of credits.' },
+        { p: 3, items: [['steel', 2], ['scrap', 4]], xp: 22, log: 'The vault was half-looted already. You left with the plating they overlooked.' },
+        { bad: true, p: 2, damage: [['weapons', 16], ['hull', 10]], xp: 12, log: 'The door was wired to a thermite charge. It cooked your forward hardpoint.' },
+      ] },
+      { label: 'Cut the hinges (slow but safe)', result: { items: [['steel', 3], ['scrap', 5]], xp: 24, log: 'You ignored the lock entirely and torched the hinges. Modest, certain salvage.' } },
+      { label: 'Flag it for the owners', result: { rep: 1, xp: 6, log: 'You logged the vault and broadcast its drift to the nearest lawful station. Quiet goodwill.' } },
+    ],
+  },
+  {
+    id: 'warm_reactor',
+    title: "The Bargain Core",
+    text: "A wrecked tender's reactor is still live, idling on bleed power — and a battered maintenance AI offers you a trade: a measure of fuel to spin it up, for a share of whatever it yields.",
+    choices: [
+      { label: 'Spin it up (costs fuel)', skill: 'engineering', outcomes: [
+        { good: true, p: 3, fuel: -4, items: [['reactor_part', 1], ['hydrogen_fuel', 8]], xp: 60, log: 'The core surged to life and gave back tenfold — a reactor part and tanks of fresh hydrogen.' },
+        { p: 3, fuel: -4, items: [['hydrogen_fuel', 4], ['wiring', 2]], xp: 24, log: 'It coughed out a little fuel before guttering. Roughly broke even.' },
+        { bad: true, p: 2, fuel: -4, damage: [['reactor', 20]], xp: 12, log: 'The AI lied about the containment. The flare-back chewed into your own reactor.' },
+      ] },
+      { label: 'Drain the bleed power cold', result: { items: [['hydrogen_fuel', 3], ['scrap', 3]], xp: 18, log: 'You skipped the gamble and siphoned the residual charge. Small, safe, sensible.' } },
+      { label: 'Power it down and leave', result: { xp: 6, log: 'You shut the core down for good and drifted on. Some deals aren\'t worth the heat.' } },
+    ],
+  },
+  {
+    id: 'smuggler_cache',
+    title: "Smuggler's Drop",
+    text: "A magnetic cache clamps the underside of a hollow asteroid, packed with goods that never crossed a customs desk. But a patrol transponder is sweeping closer, and they'll have questions if they catch you here.",
+    choices: [
+      { label: 'Grab it and run', skill: 'piloting', outcomes: [
+        { good: true, p: 3, items: [['contraband', 2], ['black_box', 1]], xp: 50, log: 'In, out, and gone before the sweep closed. The cache was worth the nerve.' },
+        { bad: true, p: 3, items: [['contraband', 1]], rep: -2, xp: 18, log: 'The patrol tagged your hull on the way out. You kept the goods, but your name went on a list.' },
+      ] },
+      { label: 'Take only the legal cargo', result: { items: [['wiring', 4], ['ammo', 4]], xp: 20, log: 'You left the hot goods and lifted only what a customs officer could shrug at.' } },
+      { label: 'Tip off the patrol', result: { rep: 2, xp: 10, log: 'You pinged the cache\'s position to the approaching patrol. Lawful standing, clean conscience.' } },
+    ],
+  },
+  {
+    id: 'marooned_ai',
+    title: 'The Marooned Core',
+    text: "A survey probe's logic core drifts alone, its last crew decades gone. It still computes — and it offers you its archived charts, if you'll carry its memory somewhere it can finally rest.",
+    choices: [
+      { label: 'Accept its deal', skill: 'salvage', outcomes: [
+        { good: true, p: 4, items: [['survey_data', 4], ['black_box', 1]], xp: 50, log: 'It poured decades of deep-space charts into your computer, then went quiet. A real legacy.' },
+        { p: 3, items: [['survey_data', 2]], xp: 28, log: 'Most of its archive was corrupted, but the surviving charts were still worth the trip.' },
+        { bad: true, p: 2, damage: [['sensors', 16]], xp: 14, log: 'The core had a worm coiled in its logic. It scrambled your sensors before you cut it loose.' },
+      ] },
+      { label: 'Strip it for parts instead', result: { items: [['damaged_module', 1], ['wiring', 3], ['focusing_lens', 1]], xp: 26, log: 'No deals. You gutted the core for its optics and components.' } },
+      { label: 'Leave it to its long sleep', result: { xp: 8, log: 'You let the old machine dream on undisturbed. Not everything out here is salvage.' } },
+    ],
+  },
+  {
+    id: 'yacht_graveyard',
+    title: 'Drifting Yacht Graveyard',
+    text: "A cluster of pleasure yachts hangs frozen mid-pirouette, gilded hulls scarred by whatever caught them out here. The cabins are crusted with the small luxuries of the very rich.",
+    choices: [
+      { label: 'Ransack the staterooms', skill: 'salvage', outcomes: [
+        { good: true, p: 3, credits: [220, 440], items: [['focusing_lens', 1], ['contraband', 1]], xp: 45, log: 'A captain\'s safe, a smuggler\'s stash, and a drawer of optics worth more than the ship. Lavish.' },
+        { p: 4, credits: [80, 160], items: [['scrap', 4]], xp: 20, log: 'Picked-over cabins and gilt that turned out to be paint. A modest take.' },
+        { bad: true, p: 2, damage: [['lifesupport', 14], ['hull', 8]], xp: 12, log: 'A pressurised cabin blew its seal as you cut in. The decompression nearly took you with it.' },
+      ] },
+      { label: 'Tow one intact hull to port', skill: 'piloting', result: { credits: [180, 320], xp: 30, log: 'You hitched the prettiest hull and hauled it in. Collectors pay for a name like that.' } },
+      { label: 'Pay your respects and go', result: { xp: 6, log: 'Whatever happened here, it wasn\'t a good way to go. You left the dead their dignity.' } },
+    ],
+  },
+  {
+    id: 'hazard_pod',
+    title: 'Mislabelled Cargo Pod',
+    text: "A standard ore pod tumbles past — except the radiation tab on its flank is screaming, and the manifest says it should be nothing but nickel. Someone shipped something hot under a quiet label.",
+    choices: [
+      { label: 'Crack it open carefully', skill: 'engineering', outcomes: [
+        { good: true, p: 3, items: [['uranium_ore', 4], ['titanium_ore', 2]], xp: 50, log: 'Under the false manifest: refined uranium ore, smuggled raw. A hot, valuable haul.' },
+        { p: 3, items: [['nickel_ore', 3], ['scrap', 2]], xp: 18, log: 'The tab was faulty — just nickel after all. Anticlimactic, but harmless.' },
+        { bad: true, p: 3, damage: [['lifesupport', 18], ['hull', 6]], xp: 12, log: 'The shielding failed as you breached it. A dose leaked into the cabin before you sealed up.' },
+      ] },
+      { label: 'Vent the radiation first (safe)', result: { items: [['nickel_ore', 3], ['ice', 2]], xp: 20, log: 'You bled off the hot isotopes through a vent line and took only what was safe to hold.' } },
+      { label: 'Mark it hazardous and leave', result: { rep: 1, xp: 8, log: 'You slapped a real hazard beacon on it and warned the lanes. The next pilot owes you one.' } },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// LORE — the Captain's Codex narrative archive. Each entry unlocks when its
+// `unlock` condition is met, then surfaces a paragraph of frontier history.
+// unlock.type: 'always' (from the start) | 'visit' (sys: system id) |
+// 'discover' (poi: POI id) | 'achievement' (ach: achievement id) |
+// 'produce' (res or kind, n: lifetime threshold). The engine's loreUnlocked()
+// reads the same state as achievements/quests; checkLore() pushes new ids into
+// g.loreSeen and announces them. Entries are pure flavour — no mechanical effect.
+// ---------------------------------------------------------------------------
+const LORE = [
+  { id: 'intro_reach', title: 'The Long Reach', unlock: { type: 'always' },
+    body: 'They call this stretch of the black the Reach — a frontier of belts and dead battlefields where the core powers\' writ runs thin and a sharp pilot can still make a name. Out here, your ship is your nation and your manifest is your history. Nobody asks where you came from; they only ask what you\'re hauling.' },
+  { id: 'intro_pilot', title: 'A Pilot\'s Trade', unlock: { type: 'always' },
+    body: 'Mine the rock, strip the dead, run the cargo, and try not to die owing money. That\'s the whole of it. The veterans say the Reach takes everyone in the end — but it pays the patient ones first. Keep your reactor cool and your debts cooler.' },
+  { id: 'founding_kharon', title: 'The Founding of Kharon', unlock: { type: 'visit', sys: 'kharon' },
+    body: 'Kharon\'s Belt was the first frontier strike — a rush of independent prospectors who staked the orange dwarf\'s endless rubble before any flag could claim it. They built the station from the hulls of the ships that brought them, and from that scrap-welded warren the Freebelt Union was born. To this day Kharon Station calls no one boss.' },
+  { id: 'rise_freebelt', title: 'The Freebelt Union', unlock: { type: 'achievement', ach: 'first_haul' },
+    body: 'The Union began as a mutual-aid pact between belt crews too poor to be robbed twice. It grew teeth fast: shared patrols, shared depots, and a refusal to let any corporation or pirate clan tax the belts they\'d bled to open. The Union is not a government so much as a promise — that out here, the working pilot looks after their own.' },
+  { id: 'redmaw_blood', title: 'The Red Maw', unlock: { type: 'visit', sys: 'kharon' },
+    body: 'The Red Maw is the dominant raider clan of the Reach, grown fat on the lanes the Union can\'t cover. They keep no charter and write no laws — only the simple arithmetic of plunder. The Maw remembers every slight in blood and every favour in cut, and they hold the Union responsible for every belt they were ever chased out of.' },
+  { id: 'war_tartarus', title: 'The War That Gutted Tartarus', unlock: { type: 'visit', sys: 'tartarus' },
+    body: 'Tartarus Reach was a thriving system once, before the Combine and the Union fought a proxy war over its shipyards and left them a graveyard. Whole fleets were scuttled in a single dying season; the red giant overhead watched it all and is itself now dying. What\'s left is a war zone of irradiated hulks — and the richest salvage in the cluster, if you can survive collecting it.' },
+  { id: 'veil_nebula', title: 'What the Veil Is', unlock: { type: 'visit', sys: 'veil' },
+    body: 'The Veil is a binary star drowned in luminous dust, and within that dust grow crystal fields unlike anything in catalogued space — lattices that focus light with eerie precision. The Xenowatch Concord believes the formations are not entirely natural. They have never said why. They simply keep cataloguing, and quietly buy every shard and survey log a pilot will sell.' },
+  { id: 'concord_charter', title: 'The Xenowatch Concord', unlock: { type: 'discover', poi: 'vl_relic' },
+    body: 'The Concord styles itself a scientific authority, chartered to catalogue the deep nebulae and the strange relics adrift within them. In truth it is as much a vault as a university — it studies the anomalies of the Veil openly and buries half of what it finds. Pilots who bring them black boxes and survey data are paid well, and asked to forget the contents.' },
+  { id: 'helix_rise', title: 'The Rise of Helix', unlock: { type: 'visit', sys: 'halcyon' },
+    body: 'The Helix Combine rose from a single foundry contract into a vertically-integrated megacorp that owns the ore, the refinery, the ship, and the debt you took to crew it. Halcyon Drift is theirs end to end — a system of managed stars and round-the-clock yards. Helix measures everyone by their books, and the books are never quite balanced in your favour.' },
+  { id: 'commonwealth', title: 'The Commonwealth Communes', unlock: { type: 'visit', sys: 'solace' },
+    body: 'Solace Commons is a federation of worker communes with no bosses and no gouging — shared yards, open belts, profits split by the people who dug them. The Commonwealth Collective formed in open defiance of Helix, and the two have hated each other ever since. The communes give fair prices and ask only fair dealing in return; profiteers find a cold welcome.' },
+  { id: 'meridian_hub', title: 'The Meridian Crossroads', unlock: { type: 'visit', sys: 'meridian' },
+    body: 'Meridian sits at the calm centre of the cluster, a stable yellow star ringed by the busiest exchange in the Reach. There\'s little to mine here and no war to fight — only trade, endless trade. Every faction keeps a desk at Meridian, and an uneasy truce holds within scanner range of the Exchange. It is the one place in the Reach where your reputation precedes your guns.' },
+  { id: 'belt_baron_lore', title: 'Songs of the Belt', unlock: { type: 'produce', kind: 'ore', n: 2000 },
+    body: 'Every belter learns the old songs eventually — work hymns kept time to the rhythm of the cutting lasers, passed crew to crew since the Kharon rush. They\'re about the same things they\'ve always been about: the rock, the long dark, the credits owed, and the people who didn\'t make the burn home. Sing enough of them and you\'re no longer a tourist out here. You\'re belt.' },
+  { id: 'reactor_lore', title: 'The Reactor Trade', unlock: { type: 'achievement', ach: 'reactor_line' },
+    body: 'A working reactor part is worth more than most ships out here, and assembling one from raw uranium and titanium is a craft the Combine would rather keep to itself. Those who learn it never want for work — every hull in the Reach runs on a fusion core, and every core eventually cracks. The pilots who can build the heart of a ship hold a quiet kind of power.' },
 ];

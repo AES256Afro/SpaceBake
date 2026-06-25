@@ -68,6 +68,7 @@ function newGame() {
     visited: ['kharon'],            // system ids you've been to (for the Codex)
     produced: {},                   // lifetime resources produced (resId -> qty)
     achievements: [],               // unlocked achievement ids
+    loreSeen: [],                   // unlocked Codex lore entry ids
     questsDone: [],                  // completed onboarding objective ids
     questChains: {},                 // faction storyline progress: fid -> {step, killBaseline}
     renown: 0,                       // prestige currency (permanent production bonus)
@@ -143,6 +144,7 @@ function loadGame() {
     if (!g.visited.includes(g.currentSystem)) g.visited.push(g.currentSystem);
     if (!g.produced || typeof g.produced !== 'object') g.produced = {};
     if (!Array.isArray(g.achievements)) g.achievements = [];
+    if (!Array.isArray(g.loreSeen)) g.loreSeen = [];
     if (!Array.isArray(g.questsDone)) g.questsDone = [];
     if (!g.questChains || typeof g.questChains !== 'object') g.questChains = {};
     if (typeof g.renown !== 'number') g.renown = 0;

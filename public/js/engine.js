@@ -106,6 +106,38 @@ const Engine = (() => {
     }
   }
 
+  // ----- codex lore (narrative unlocks) -----
+  // Evaluate a LORE entry's unlock condition against game state. Mirrors how
+  // achievementValue / questValue read state: visited→g.visited,
+  // discovered→g.discovered, achievements→g.achievements, produced→g.produced.
+  function loreUnlocked(g, entry) {
+    const u = entry.unlock || {};
+    switch (u.type) {
+      case 'always': return true;
+      case 'visit': return (g.visited || []).includes(u.sys);
+      case 'discover': return (g.discovered || []).includes(u.poi);
+      case 'achievement': return (g.achievements || []).includes(u.ach);
+      case 'produce': {
+        const prod = g.produced || {};
+        const have = u.res ? Math.floor(prod[u.res] || 0)
+          : Object.entries(prod).reduce((a, [id, q]) => a + (RESOURCES[id] && RESOURCES[id].kind === u.kind ? Math.floor(q) : 0), 0);
+        return have >= (u.n || 0);
+      }
+      default: return false;
+    }
+  }
+  function checkLore(g) {
+    if (!g.loreSeen) g.loreSeen = [];
+    if (g.loreSeen.length >= LORE.length) return; // all known — keep it cheap
+    for (const entry of LORE) {
+      if (g.loreSeen.includes(entry.id)) continue;
+      if (loreUnlocked(g, entry)) {
+        g.loreSeen.push(entry.id);
+        logLine(g, `📖 Lore unlocked: ${entry.title}`, 'level');
+      }
+    }
+  }
+
   // Deployed Refinery Barges work the shared fleet stockpile: first single-input
   // recipes (raw ore → metal/fuel), then multi-input recipes (assemble finished
   // goods), each pass richest-output-first. Splitting the passes lets chains run
@@ -318,9 +350,10 @@ const Engine = (() => {
       }
     }
 
-    // production milestones + onboarding objectives
+    // production milestones + onboarding objectives + codex lore
     checkAchievements(g);
     checkObjectives(g);
+    checkLore(g);
   }
 
   // ----- market events: roll 1-2 temporary price swings for the current system
@@ -1632,7 +1665,7 @@ const Engine = (() => {
     tick, startMission, recallMission, resolveDistress, resolveEncounter,
     startTravel, travelCost, dockAt, rollMarketEvents, rollNews,
     startScan, startPoiMission, poiLocation, poiTier,
-    achievementValue, perkMult, pendingRenown, prestige,
+    achievementValue, loreUnlocked, perkMult, pendingRenown, prestige,
     acceptContract, completeContract, abandonContract, contractProgress, generateContracts,
     questStatus, reportQuest, chooseQuest,
     startRefine, sellResource, sellAllRaw, sellPrice, buyResource, buyPrice, isBuyable, bestRoutes,
