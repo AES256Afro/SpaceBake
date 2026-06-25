@@ -1608,3 +1608,60 @@ const LORE = [
   { id: 'reactor_lore', title: 'The Reactor Trade', unlock: { type: 'achievement', ach: 'reactor_line' },
     body: 'A working reactor part is worth more than most ships out here, and assembling one from raw uranium and titanium is a craft the Combine would rather keep to itself. Those who learn it never want for work — every hull in the Reach runs on a fusion core, and every core eventually cracks. The pilots who can build the heart of a ship hold a quiet kind of power.' },
 ];
+
+// ---------------------------------------------------------------------------
+// GALAXY EVENTS — cluster-wide conditions that come and go, announced on GalNet
+// and felt everywhere while active. effects (all optional, default 1/0):
+//   priceAll        — multiply ALL sell prices
+//   priceKind{kind} — multiply sell prices of a resource kind
+//   yield           — multiply mission loot
+//   contractMult    — multiply contract credit rewards
+//   heat            — added to the customs-bust chance (smuggling risk)
+// ---------------------------------------------------------------------------
+const GALAXY_EVENTS = [
+  { id: 'ore_rush',      name: 'Cluster Ore Rush',     icon: '⛏️', desc: 'Refiners everywhere are paying a premium for raw ore.',            effects: { priceKind: { ore: 1.35 } },                       news: 'A cluster-wide ore rush sends refiners scrambling — raw ore prices surge at every port.' },
+  { id: 'pirate_surge',  name: 'Pirate Surge',         icon: '☠️', desc: 'Raider wings swarm the lanes. Bounties pay more — space is meaner.', effects: { contractMult: 1.35, heat: 0.05 },                 news: 'Raider activity spikes across every lane. Factions raise their bounties; pilots raise their guard.' },
+  { id: 'trade_festival',name: "Founders' Festival",   icon: '🎉', desc: 'A cluster-wide festival lifts demand for finished goods and fuel.',   effects: { priceKind: { refined: 1.25, part: 1.25, fuel: 1.2 } }, news: "The Founders' Festival lights every station — markets buzz and finished goods move fast." },
+  { id: 'fuel_crisis',   name: 'Hydrogen Crisis',      icon: '⛽', desc: 'A supply shock leaves fuel scarce and dear across the cluster.',       effects: { priceKind: { fuel: 1.6 } },                       news: 'Hydrogen runs short cluster-wide. Fuel prices spike at every port — tankers are kings this week.' },
+  { id: 'bull_market',   name: 'Bull Market',          icon: '📈', desc: 'Speculation is hot — everything sells high right now.',               effects: { priceAll: 1.15 },                                 news: 'A speculative fever grips the exchanges; prices climb across the board.' },
+  { id: 'crackdown',     name: 'Customs Crackdown',    icon: '🚨', desc: 'Lawful factions run hard inspections everywhere. Smuggling is risky.', effects: { heat: 0.2 },                                      news: 'Lawful authorities launch a cluster-wide customs crackdown. Run clean — they are not playing.' },
+  { id: 'prospect_boom', name: 'Prospecting Boom',     icon: '💎', desc: 'Rich strikes everywhere — mining and salvage yields run high.',        effects: { yield: 1.2 },                                     news: 'Word of fat strikes spreads fast; prospectors flood the belts and yields run high.' },
+  { id: 'quiet_season',  name: 'Quiet Season',         icon: '🌌', desc: 'A rare lull settles over the cluster. Nothing much doing — for now.',  effects: {},                                                 news: 'An unusual calm settles over the Reach. Veterans say it never lasts.' },
+];
+
+// ---------------------------------------------------------------------------
+// CREW ASSIGNMENTS — send a crew member off-ship on a timed side-task. While
+// away they vacate their berth (a benched crew slides in). On return a weighted
+// outcome rolls. result/outcomes support: credits[lo,hi], items[[id,qty]], xp,
+// rep, survey ('reveal a hidden POI here'). `bad` flags a sour result.
+// ---------------------------------------------------------------------------
+const CREW_TASKS = {
+  shore_leave: { id: 'shore_leave', name: 'Shore Leave', icon: '🍺', dur: 90,
+    desc: 'A round at the cantina and a night off. Low stakes, good for morale.',
+    outcomes: [
+      { p: 5, xp: 10, log: 'came back rested, with a pocketful of dock gossip.' },
+      { p: 2, good: true, credits: [40, 90], xp: 12, log: 'won big at the card table and split the take with the ship.' },
+      { p: 1, bad: true, credits: [-60, -20], xp: 4, log: 'started a brawl. You covered the damages.' },
+    ] },
+  work_contact: { id: 'work_contact', name: 'Work a Contact', icon: '🤝', dur: 180,
+    desc: 'Lean on an old contact for credits and a lead.',
+    outcomes: [
+      { p: 4, good: true, credits: [120, 240], xp: 20, log: 'shook loose a tidy payment and a few names.' },
+      { p: 3, items: [['survey_data', 2]], xp: 18, log: 'came back with survey data instead of coin — still useful.' },
+      { p: 2, bad: true, credits: [-80, -20], xp: 6, log: 'got played. The contact took a cut and gave nothing.' },
+    ] },
+  side_deal: { id: 'side_deal', name: 'Run a Side-Deal', icon: '💼', dur: 240,
+    desc: 'A discreet off-book trade. Pays well — if it doesn\'t go sideways.',
+    outcomes: [
+      { p: 4, good: true, credits: [260, 480], xp: 28, log: 'closed the deal clean and came back flush.' },
+      { p: 2, good: true, items: [['contraband', 1], ['black_box', 1]], xp: 24, log: 'took payment in goods — the kind you fence quietly.' },
+      { p: 2, bad: true, credits: [-160, -40], rep: -1, xp: 8, log: 'the deal soured and someone took offence. Standing dinged.' },
+    ] },
+  scout_lead: { id: 'scout_lead', name: 'Scout a Lead', icon: '🧭', dur: 200,
+    desc: 'Send them ahead to chase a rumour of an uncharted site in this system.',
+    outcomes: [
+      { p: 3, survey: true, xp: 26, log: 'tracked the rumour to a real site and marked it on your charts.' },
+      { p: 3, items: [['survey_data', 3]], xp: 20, log: 'found nothing new, but logged solid survey data.' },
+      { p: 2, bad: true, xp: 8, log: 'chased a dead lead and came back with sore feet.' },
+    ] },
+};
