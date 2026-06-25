@@ -91,6 +91,7 @@ const UI = (() => {
     const host = $('#mission-banner');
     host.innerHTML = '';
     if (g.pendingDistress) {
+      host.classList.remove('hidden');
       host.appendChild(renderDistress());
       return;
     }
@@ -105,9 +106,9 @@ const UI = (() => {
     const isTravel = m.type === 'travel';
     const isScan = m.type === 'scan';
     let title;
-    if (isTravel) title = `🚀 Jumping to ${SYSTEMS[m.dest].name}`;
+    if (isTravel) title = `🚀 Jumping to ${SYSTEMS[m.dest] ? SYSTEMS[m.dest].name : 'destination'}`;
     else if (isScan) title = `📡 Surveying ${m.target === 'system' ? curSystem(g).name : (BODIES[m.target] ? BODIES[m.target].name : 'area')}`;
-    else title = `⏳ ${ACTIVITIES[m.id].name}${m.location ? ` — ${m.location}` : ''}`;
+    else title = `⏳ ${ACTIVITIES[m.id] ? ACTIVITIES[m.id].name : 'Mission'}${m.location ? ` — ${m.location}` : ''}`;
     const left = timeLeft(m.endsAt);
     const total = m.duration;
     const pct = Math.min(100, Math.round((1 - left / total) * 100));
@@ -282,7 +283,7 @@ const UI = (() => {
     cfg.appendChild(auto);
     wrap.appendChild(cfg);
 
-    const busy = !!g.mission || !!g.pendingDistress;
+    const busy = busyNow();
     const grid = el('div', 'card-grid');
     for (const id of base.activities) {
       const act = ACTIVITIES[id];
@@ -336,7 +337,7 @@ const UI = (() => {
   function renderGalaxy() {
     const wrap = el('div', 'panel');
     const here = curSystem(g);
-    const busy = !!g.mission || !!g.pendingDistress;
+    const busy = busyNow();
 
     wrap.appendChild(el('div', 'sysinfo',
       `<h3>🌌 Galaxy Map — docked at ${here.name}</h3>
