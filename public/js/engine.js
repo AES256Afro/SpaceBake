@@ -941,11 +941,12 @@ const Engine = (() => {
   // single-engagement wrapper (preserves the original API + hull damage + XP)
   function runCombat(g, stats, enemy, beh) {
     const r = fight(g, stats, enemy, beh, null);
-    if (r.win) {
-      const taken = stats.hull - r.hp;
-      g.systems.hull = Math.max(0, g.systems.hull - Math.round(taken / stats.maxHull * 60));
-      addSkillXp(g, 'gunnery', 15);
-    }
+    // Apply hull damage whether you won, fled, or were overwhelmed — matching
+    // runWaves(). Previously this sat inside `if (r.win)`, so losing or fleeing a
+    // fight cost no hull at all, making reckless engagements consequence-free.
+    const taken = stats.hull - r.hp;
+    if (taken > 0) g.systems.hull = Math.max(0, g.systems.hull - Math.round(taken / stats.maxHull * 60));
+    if (r.win) addSkillXp(g, 'gunnery', 15);
     return { win: r.win, log: r.log };
   }
 
