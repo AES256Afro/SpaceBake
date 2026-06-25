@@ -218,7 +218,11 @@ const UI = (() => {
         if (unread) label += ` <span class="news-badge">${unread > 9 ? '9+' : unread}</span>`;
       }
       const b = el('button', 'tab' + (tab === id ? ' active' : ''), label);
-      b.onclick = () => { tab = id; render(); };
+      b.onclick = () => {
+        tab = id; render();
+        // bring the new tab's content into view (it may have rendered below the fold)
+        if (typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+      };
       host.appendChild(b);
     }
   }
