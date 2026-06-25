@@ -646,7 +646,9 @@ const UI = (() => {
     const grid = el('div', 'card-grid');
     for (const o of offers) {
       const card = el('div', 'card');
-      const typeTag = o.type === 'bounty' ? '<span class="tag tag-high">Bounty</span>' : '<span class="tag tag-low">Delivery</span>';
+      const typeTag = o.type === 'bounty' ? '<span class="tag tag-high">Bounty</span>'
+        : o.type === 'produce' ? '<span class="tag tag-medium">Quota</span>'
+        : '<span class="tag tag-low">Delivery</span>';
       card.innerHTML = `<div class="card-head"><strong>${o.title}</strong>${typeTag}</div>
         <p class="muted">${o.desc}</p>
         <div class="card-meta"><span>💰 ${fmt(o.reward.credits)} cr</span><span>🤝 +${o.reward.rep}</span><span>📘 +${o.reward.xp} XP</span></div>`;
@@ -1209,6 +1211,15 @@ const UI = (() => {
       lGrid.appendChild(card);
     }
     wrap.appendChild(lGrid);
+
+    // Captain's Logbook — a personal journal auto-written from career milestones
+    const journal = g.journal || [];
+    if (journal.length) {
+      wrap.appendChild(el('h3', null, '📔 Captain\'s Logbook'));
+      const jl = el('div', 'journal-list');
+      for (const e of journal) jl.appendChild(el('div', 'journal-entry', `<span class="j-icon">${e.icon || '•'}</span><span>${e.text}</span>`));
+      wrap.appendChild(jl);
+    }
 
     // per-system discovery log
     wrap.appendChild(el('h3', null, '🌌 Systems'));

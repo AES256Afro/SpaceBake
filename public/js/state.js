@@ -69,6 +69,8 @@ function newGame() {
     produced: {},                   // lifetime resources produced (resId -> qty)
     achievements: [],               // unlocked achievement ids
     loreSeen: [],                   // unlocked Codex lore entry ids
+    journal: [],                    // Captain's Logbook: milestone entries (newest first)
+    journalKeys: {},                // milestone keys already logged (dedupe)
     questsDone: [],                  // completed onboarding objective ids
     questChains: {},                 // faction storyline progress: fid -> {step, killBaseline}
     renown: 0,                       // prestige currency (permanent production bonus)
@@ -145,6 +147,8 @@ function loadGame() {
     if (!g.produced || typeof g.produced !== 'object') g.produced = {};
     if (!Array.isArray(g.achievements)) g.achievements = [];
     if (!Array.isArray(g.loreSeen)) g.loreSeen = [];
+    if (!Array.isArray(g.journal)) g.journal = [];
+    if (!g.journalKeys || typeof g.journalKeys !== 'object') g.journalKeys = {};
     if (!Array.isArray(g.questsDone)) g.questsDone = [];
     if (!g.questChains || typeof g.questChains !== 'object') g.questChains = {};
     if (typeof g.renown !== 'number') g.renown = 0;

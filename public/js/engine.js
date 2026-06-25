@@ -138,6 +138,40 @@ const Engine = (() => {
     }
   }
 
+  // ----- Captain's Logbook: a personal narrative auto-written from milestones.
+  // Persists across prestige (like the Codex). journalKeys prevents duplicates. -----
+  function journalAdd(g, icon, text) {
+    if (!g.journal) g.journal = [];
+    g.journal.unshift({ t: Date.now(), icon, text });
+    if (g.journal.length > 80) g.journal.length = 80;
+  }
+  function journalOnce(g, key, icon, text) {
+    if (!g.journalKeys) g.journalKeys = {};
+    if (g.journalKeys[key]) return;
+    g.journalKeys[key] = 1;
+    journalAdd(g, icon, text);
+  }
+  function checkJournal(g) {
+    const st = g.stats || {};
+    for (const [thr, txt] of [[1, 'Logged my first run. The frontier doesn\'t wait for anyone.'],
+      [10, 'Ten runs in — the ship\'s starting to feel like home.'],
+      [100, 'A hundred runs behind me. The old hands are starting to nod.'],
+      [1000, 'A thousand runs. They tell stories about pilots like me now.']])
+      if ((st.runs || 0) >= thr) journalOnce(g, 'runs' + thr, '🚀', txt);
+    for (const [thr, txt] of [[1, 'First kill. The void got a little quieter.'],
+      [25, 'Twenty-five hostiles down. Word travels out here.'],
+      [100, 'A hundred kills. The raiders know my transponder by now.']])
+      if ((st.kills || 0) >= thr) journalOnce(g, 'kills' + thr, '💥', txt);
+    for (const [thr, txt] of [[10000, 'Cleared ten thousand credits earned. Beans on the table.'],
+      [100000, 'A hundred thousand earned. I can afford the good fuel now.'],
+      [1000000, 'A million credits earned — a frontier fortune.']])
+      if ((st.credEarned || 0) >= thr) journalOnce(g, 'cred' + thr, '💰', txt);
+    for (const sid of (g.visited || [])) if (SYSTEMS[sid]) journalOnce(g, 'visit' + sid, '🌌', `Made port in ${SYSTEMS[sid].name} for the first time.`);
+    for (const id of Object.keys(SKILLS)) { const lv = skillLevel(g, id);
+      for (const m of [25, 50, 99]) if (lv >= m) journalOnce(g, 'skill' + id + m, '📘', `Reached ${SKILLS[id].name} level ${m}.`); }
+    if (g.prestige) journalOnce(g, 'prestige' + g.prestige, '✨', `Prestiged (×${g.prestige}). The frontier begins anew — but I remember every run.`);
+  }
+
   // Deployed Refinery Barges work the shared fleet stockpile: first single-input
   // recipes (raw ore → metal/fuel), then multi-input recipes (assemble finished
   // goods), each pass richest-output-first. Splitting the passes lets chains run
@@ -354,6 +388,7 @@ const Engine = (() => {
     checkAchievements(g);
     checkObjectives(g);
     checkLore(g);
+    checkJournal(g);
   }
 
   // ----- market events: roll 1-2 temporary price swings for the current system
@@ -445,7 +480,23 @@ const Engine = (() => {
       pushNews(g, { t: now, cat: 'market', icon: NEWS_TEMPLATES.market.icon,
         outlet: 'Meridian Exchange Report', text: `${curSystem(g).name}: ${ev.label}.` });
     }
+    maybeMarketShock(g); // some news actually MOVES the local market
     g.newsEndsAt = now + (90 + Math.floor(Math.random() * 150)) * 1000; // 1.5–4 min
+  }
+
+  // GalNet that bites: occasionally a headline spawns a real price swing on a
+  // resource KIND in your current system (lives until the market set re-rolls).
+  function maybeMarketShock(g) {
+    if (typeof MARKET_EVENT_POOL === 'undefined') return;
+    if (!Array.isArray(g.marketEvents)) g.marketEvents = [];
+    if (Math.random() > 0.15) return;
+    const active = new Set(g.marketEvents.map(e => e.kind));
+    const candidates = MARKET_EVENT_POOL.filter(e => !active.has(e.kind));
+    if (!candidates.length) return;
+    const ev = newsPick(candidates);
+    g.marketEvents.push({ kind: ev.kind, mult: ev.mult, up: ev.up, label: ev.label, fromNews: true });
+    pushNews(g, { t: Date.now(), cat: 'market', icon: '📈',
+      outlet: newsPick(NEWS_OUTLETS), text: `${curSystem(g).name}: ${ev.label} — local prices are moving.` });
   }
 
   // ----- cantina rumours: local bar gossip, regenerated when the board rolls -----
@@ -531,7 +582,8 @@ const Engine = (() => {
     const count = 3;
     for (let i = 0; i < count; i++) {
       const seq = ++g.contractSeq;
-      if (Math.random() < 0.6) {
+      const roll = Math.random();
+      if (roll < 0.45) {
         // delivery: bring goods this faction wants
         const resId = fac.wants[Math.floor(Math.random() * fac.wants.length)];
         const res = RESOURCES[resId];
@@ -544,7 +596,7 @@ const Engine = (() => {
           title: `Deliver ${qty}× ${res.name}`,
           desc: `${fac.name} needs ${qty}× ${res.icon} ${res.name}. Bring it to any ${fac.name} station.`,
         });
-      } else {
+      } else if (roll < 0.75) {
         // bounty: clear hostiles
         const kills = 2 + Math.floor(Math.random() * 3) + Math.floor(power / 10);
         const credits = kills * 140 + 100;
@@ -555,15 +607,38 @@ const Engine = (() => {
           title: `Bounty: clear ${kills} hostiles`,
           desc: `${fac.name} pays per kill. Destroy ${kills} hostiles in combat, then report back to any ${fac.name} station.`,
         });
+      } else {
+        // production quota (side-gig): mine/refine a quantity of a resource KIND.
+        // Tracks lifetime output once accepted — no need to haul it back, just produce it.
+        const wantKinds = [...new Set(fac.wants.map(w => RESOURCES[w].kind))]
+          .filter(k => ['ore', 'refined', 'salvage', 'fuel', 'part'].includes(k));
+        const kind = wantKinds.length ? wantKinds[Math.floor(Math.random() * wantKinds.length)] : 'ore';
+        const need = 20 + Math.floor(Math.random() * 30) + power * 2;
+        const credits = Math.round(need * 7 + 120);
+        const rep = 1 + Math.floor(need / 40);
+        offers.push({
+          id: `${fid}-p-${seq}`, faction: fid, type: 'produce', kind, qty: need,
+          reward: { credits, rep, xp: Math.round(credits / 12) },
+          title: `Quota: produce ${need}× ${kind}`,
+          desc: `${fac.name} wants ${need} units of ${kind} mined or refined. Output counts from the moment you accept — then report to any ${fac.name} station.`,
+        });
       }
     }
     g.contractOffers = offers;
+  }
+  // lifetime units produced of a given resource KIND (used by production quotas)
+  function producedKind(g, kind) {
+    const prod = g.produced || {};
+    return Object.entries(prod).reduce((a, [id, q]) => a + (RESOURCES[id] && RESOURCES[id].kind === kind ? Math.floor(q) : 0), 0);
   }
   function acceptContract(g, id) {
     if (g.activeContract) return { ok: false, msg: 'Finish or abandon your current contract first.' };
     const off = (g.contractOffers || []).find(o => o.id === id);
     if (!off) return { ok: false, msg: 'That contract is no longer available.' };
-    g.activeContract = Object.assign({}, off, { acceptedAt: Date.now(), killBaseline: g.stats.kills });
+    g.activeContract = Object.assign({}, off, {
+      acceptedAt: Date.now(), killBaseline: g.stats.kills,
+      produceBaseline: off.type === 'produce' ? producedKind(g, off.kind) : 0,
+    });
     g.contractOffers = g.contractOffers.filter(o => o.id !== id);
     logLine(g, `Accepted contract: ${off.title} (${FACTIONS[off.faction].name}).`, 'go');
     return { ok: true };
@@ -573,6 +648,7 @@ const Engine = (() => {
     if (!c) return null;
     if (c.type === 'deliver') return { have: g.cargo[c.resource] || 0, need: c.qty };
     if (c.type === 'bounty') return { have: Math.max(0, g.stats.kills - c.killBaseline), need: c.kills };
+    if (c.type === 'produce') return { have: Math.max(0, producedKind(g, c.kind) - (c.produceBaseline || 0)), need: c.qty };
     return null;
   }
   function completeContract(g) {
@@ -586,10 +662,15 @@ const Engine = (() => {
     } else if (c.type === 'bounty') {
       const got = g.stats.kills - c.killBaseline;
       if (got < c.kills) return { ok: false, msg: `Bounty incomplete: ${got}/${c.kills} hostiles cleared.` };
+    } else if (c.type === 'produce') {
+      const made = producedKind(g, c.kind) - (c.produceBaseline || 0);
+      if (made < c.qty) return { ok: false, msg: `Quota incomplete: ${Math.floor(made)}/${c.qty} ${c.kind} produced.` };
     }
     g.credits += c.reward.credits; g.stats.credEarned += c.reward.credits;
     addRep(g, c.faction, c.reward.rep);
-    const sk = c.type === 'bounty' ? 'gunnery' : 'trade';
+    const sk = c.type === 'bounty' ? 'gunnery'
+      : c.type === 'produce' ? (c.kind === 'refined' || c.kind === 'part' ? 'refining' : 'mining')
+      : 'trade';
     const lu = addSkillXp(g, sk, c.reward.xp);
     logLine(g, `Contract complete: ${c.title}. +${c.reward.credits} cr, ${fac.name} standing +${c.reward.rep}.`, 'good');
     if (lu) logLine(g, `★ ${SKILLS[sk].name} reached level ${lu}!`, 'level');
