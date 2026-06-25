@@ -1,0 +1,12 @@
+# Cloudflare Workers Static Assets — custom response headers.
+# https://developers.cloudflare.com/workers/static-assets/headers/
+#
+# The game's assets are unversioned (js/ui.js, css/style.css, …), so without
+# this a browser can keep serving stale code after a deploy — exactly what made
+# the iPad keep hitting an already-fixed bug. `no-cache` lets the browser store
+# the file but forces it to revalidate against the edge on every load; Workers
+# serves ETags, so unchanged files come back as a tiny 304 and changed files are
+# fetched fresh. Players always run the latest deployed build, no manual cache
+# clearing required.
+/*
+  Cache-Control: no-cache
