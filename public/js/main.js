@@ -20,7 +20,8 @@
     // offline catch-up: process elapsed time, then show a "while you were away" summary
     const elapsed = Date.now() - (g.lastTick || Date.now());
     const before = UI.snapshot(g);
-    Engine.tick(g);            // settle fleet income/harvest + any mission that ended
+    try { Engine.tick(g); }     // settle fleet income/harvest + any mission that ended
+    catch (err) { if (typeof console !== 'undefined') console.error('SpaceBake startup tick error:', err); }
     UI.refresh();
     if (elapsed > 60000) UI.offlineSummary(before, elapsed);
   }
@@ -28,18 +29,27 @@
   // main loop ~5fps for logic, requestAnimationFrame for smooth timers
   let lastSave = Date.now();
   function loop() {
-    Engine.tick(g);
-    UI.setState(g);
-    UI.tickRender();
-    // autosave at the player's chosen cadence (0 = only on exit)
-    const autosaveMs = (Settings.get('autosaveSec') || 0) * 1000;
-    if (autosaveMs && Date.now() - lastSave > autosaveMs) { saveGame(g); lastSave = Date.now(); }
+    // Wrap the whole frame: an uncaught error here would skip the
+    // requestAnimationFrame(loop) below and permanently freeze the UI (frozen
+    // progress bar, greyed-out buttons). Catch, log, and keep the loop alive.
+    try {
+      Engine.tick(g);
+      UI.setState(g);
+      UI.tickRender();
+      // autosave at the player's chosen cadence (0 = only on exit)
+      const autosaveMs = (Settings.get('autosaveSec') || 0) * 1000;
+      if (autosaveMs && Date.now() - lastSave > autosaveMs) { saveGame(g); lastSave = Date.now(); }
+    } catch (err) {
+      if (typeof console !== 'undefined') console.error('SpaceBake loop error:', err);
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 
   // a steadier logic tick so missions resolve promptly even in background-ish tabs
-  setInterval(() => { Engine.tick(g); }, 500);
+  setInterval(() => {
+    try { Engine.tick(g); } catch (err) { if (typeof console !== 'undefined') console.error('SpaceBake tick error:', err); }
+  }, 500);
 
   // save on unload
   window.addEventListener('beforeunload', () => saveGame(g));

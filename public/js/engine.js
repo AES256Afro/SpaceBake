@@ -301,9 +301,18 @@ const Engine = (() => {
     // refining job progress
     if (g.refineJob && now >= g.refineJob.endsAt) completeRefineBatch(g);
 
-    // mission completion
+    // mission completion. Guard it: if resolution ever throws, clear the mission
+    // instead of re-throwing every tick (which would freeze the loop and leave
+    // the activity buttons greyed out with no progress bar, permanently).
     if (g.mission && !g.pendingDistress && now >= g.mission.endsAt) {
-      resolveMission(g);
+      try {
+        resolveMission(g);
+      } catch (err) {
+        if (typeof console !== 'undefined') console.error('resolveMission failed:', err);
+        g.mission = null;
+        g.autoRepeat = false; // don't let a broken route relaunch into the same error
+        logLine(g, '⚠️ A mission failed to resolve and was aborted. You can launch again.', 'bad');
+      }
     }
 
     // production milestones + onboarding objectives
@@ -686,9 +695,15 @@ const Engine = (() => {
     }
 
     const act = ACTIVITIES[m.id];
+    if (!act) {
+      // stale/unknown mission id (e.g. from an older save) — recover gracefully
+      logLine(g, 'Returned from an unknown operation. Mission cleared.', 'bad');
+      g.mission = null;
+      return;
+    }
     const stats = shipStats(g);
     const run = makeRun(g, stats);
-    const beh = BEHAVIORS[g.behavior];
+    const beh = BEHAVIORS[g.behavior] || BEHAVIORS.defensive; // fall back if behavior is bad
     run.protectCargo = beh.protectCargo;
 
     // partial-failure factor if recalled early
