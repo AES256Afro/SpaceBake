@@ -1184,6 +1184,32 @@ const UI = (() => {
     }
     wrap.appendChild(aGrid);
 
+    // lore — unlockable narrative archive
+    const seen = g.loreSeen || [];
+    wrap.appendChild(el('h3', null, `📖 Lore — ${seen.length}/${LORE.length}`));
+    const LORE_HINTS = {
+      visit: u => `Visit ${SYSTEMS[u.sys] ? SYSTEMS[u.sys].name : u.sys}.`,
+      discover: u => `Chart ${POIS[u.poi] ? POIS[u.poi].name : 'a hidden site'}.`,
+      achievement: u => { const a = ACHIEVEMENTS.find(x => x.id === u.ach); return `Earn the ${a ? a.name : ''} achievement.`; },
+      produce: u => `Produce ${fmt(u.n)} ${u.res && RESOURCES[u.res] ? RESOURCES[u.res].name : (u.kind || 'units')}.`,
+      always: () => 'Available from the start.',
+    };
+    const lGrid = el('div', 'card-grid');
+    for (const entry of LORE) {
+      const known = seen.includes(entry.id);
+      const card = el('div', 'card' + (known ? ' ach-done' : ''));
+      if (known) {
+        card.innerHTML = `<div class="card-head"><strong>📖 ${entry.title}</strong><span class="tag tier-pristine">Unlocked</span></div>
+          <p class="muted">${entry.body}</p>`;
+      } else {
+        const hint = (LORE_HINTS[entry.unlock && entry.unlock.type] || (() => 'Keep exploring.'))(entry.unlock || {});
+        card.innerHTML = `<div class="card-head"><strong>🔒 ???</strong><span class="tag tag-medium">Locked</span></div>
+          <p class="muted">🔒 Locked — ${hint}</p>`;
+      }
+      lGrid.appendChild(card);
+    }
+    wrap.appendChild(lGrid);
+
     // per-system discovery log
     wrap.appendChild(el('h3', null, '🌌 Systems'));
     const grid = el('div', 'card-grid');
