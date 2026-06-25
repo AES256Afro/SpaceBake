@@ -132,6 +132,16 @@ body.reduce-motion .ticker-track { animation: none; }
   border-left: 3px solid var(--accent2); border-radius: 8px; padding: 7px 12px; font-size: 13px; color: var(--text); }
 .journal-entry .j-icon { font-size: 15px; flex: 0 0 auto; }
 
+/* galaxy event banner */
+.galaxy-banner { display: flex; gap: 10px; align-items: center; margin: 10px 0 4px; padding: 10px 14px;
+  background: linear-gradient(100deg, rgba(107,140,255,.16), rgba(79,209,197,.10)); border: 1px solid var(--accent2);
+  border-radius: 10px; font-size: 13px; }
+.galaxy-banner .gx-icon { font-size: 20px; flex: 0 0 auto; }
+
+/* crew assignment action buttons */
+.crew-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.crew-row.assigned { border-color: var(--accent2); }
+
 .news-feed { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .news-item { display: flex; gap: 12px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line);
   border-left: 3px solid var(--accent2); border-radius: 10px; padding: 10px 14px; }

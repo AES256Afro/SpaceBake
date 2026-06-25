@@ -270,6 +270,17 @@ const UI = (() => {
   }
 
   // ---- Activities tab ----
+  // a banner for the active cluster-wide galaxy event (shown on Activities/Market)
+  function galaxyEventBanner() {
+    const ge = Engine.activeGalaxyEvent && Engine.activeGalaxyEvent(g);
+    if (!ge) return null;
+    const left = timeLeft(ge.endsAt);
+    const mins = Math.floor(left / 60), secs = left % 60;
+    const card = el('div', 'galaxy-banner');
+    card.innerHTML = `<span class="gx-icon">${ge.def.icon}</span><span><b>${ge.def.name}</b> — ${ge.def.desc} <span class="muted">· ${mins}m ${secs}s left</span></span>`;
+    return card;
+  }
+
   function renderActivities() {
     const wrap = el('div', 'panel');
     const sys = curSystem(g);
@@ -279,6 +290,8 @@ const UI = (() => {
     if (obj) wrap.appendChild(obj);
     wrap.appendChild(el('div', 'sysline muted',
       `🛰️ <b>${base.name}</b> (${bfac.icon} ${bfac.name}) · ${sys.name} · Danger: ${sys.danger} — operations offered here. Dock elsewhere from the 🛰️ Starbase tab.`));
+    const gx = galaxyEventBanner();
+    if (gx) wrap.appendChild(gx);
     // run config row
     const cfg = el('div', 'config-row');
     cfg.appendChild(selector('Mode', MODES, g.mode, v => { g.mode = v; refresh(); }));
@@ -830,6 +843,8 @@ const UI = (() => {
     const bfac = FACTIONS[base.factionId];
     wrap.appendChild(el('div', 'sysline muted',
       `💱 <b>${base.name}</b> (${bfac.icon} ${bfac.name}) — prices vary by starbase and your standing; haul to the right buyer.`));
+    const gxm = galaxyEventBanner();
+    if (gxm) wrap.appendChild(gxm);
 
     // active market events
     if (g.marketEvents && g.marketEvents.length) {
@@ -939,6 +954,35 @@ const UI = (() => {
       btable.appendChild(row);
     }
     wrap.appendChild(btable);
+
+    // ---- BLACK MARKET (reputation-gated illegal goods to smuggle) ----
+    if (Engine.blackMarketOpen && Engine.blackMarketOpen(g)) {
+      const goods = Engine.blackMarketGoods(g);
+      if (goods.length) {
+        wrap.appendChild(el('h3', null, '🕳️ Black Market'));
+        wrap.appendChild(el('p', 'muted', 'A fence deals here — illegal and stolen goods the open exchange won\'t touch. Buy low, smuggle to a lawless port, sell high. Lawful customs will seize this cargo if they catch you. Prices improve with your Red Maw standing.'));
+        const room = Math.max(0, shipStats(g).cargo - cargoUsed(g));
+        const bm = el('div', 'market-table buy-table');
+        bm.appendChild(el('div', 'mt-head', '<span>Goods</span><span>Buy</span><span>Sells for</span><span>Actions</span>'));
+        for (const goodItem of goods) {
+          const res = RESOURCES[goodItem.id];
+          const sp = Engine.sellPrice(g, goodItem.id);
+          const row = el('div', 'mt-row');
+          row.innerHTML = `<span>${res.icon} ${res.name} <small class="warn-text">⚠ illegal</small></span><span class="buy-price">${goodItem.price} cr</span><span class="muted">${sp} cr (lawless)</span>`;
+          const actions = el('span', 'mt-actions');
+          const can = g.credits >= goodItem.price && room > 0;
+          for (const [lbl, qn] of [['+1', 1], ['+10', 10], ['Max', Math.max(1, Math.min(room, Math.floor(g.credits / goodItem.price)))]]) {
+            const b = el('button', 'btn tiny', lbl);
+            b.disabled = !can;
+            b.onclick = () => notify(Engine.buyBlackMarket(g, goodItem.id, qn));
+            actions.appendChild(b);
+          }
+          row.appendChild(actions);
+          bm.appendChild(row);
+        }
+        wrap.appendChild(bm);
+      }
+    }
     return wrap;
   }
 
@@ -957,16 +1001,41 @@ const UI = (() => {
     if (!g.crew.length) {
       wrap.appendChild(el('p', 'muted', 'No crew signed on yet. Hire specialists below.'));
     } else {
+      wrap.appendChild(el('p', 'muted', 'Send crew off-ship on timed assignments for credits, goods or intel — they vacate their berth while away, and a benched crewmate slides in. Each task has good and bad outcomes.'));
+      const busyIdx = new Set((g.crewAssignments || []).map(a => a.idx));
+      const availIdx = g.crew.map((_, i) => i).filter(i => !busyIdx.has(i));
+      const aboardIdx = new Set(availIdx.slice(0, slots));
+      const tasks = (typeof CREW_TASKS !== 'undefined') ? Object.values(CREW_TASKS) : [];
       const roster = el('div', 'crew-roster');
       g.crew.forEach((id, idx) => {
         const c = CREW[id];
-        const aboard = idx < slots;
-        const row = el('div', 'crew-row' + (aboard ? ' aboard' : ''));
-        row.innerHTML = `<span>${c.icon} <b>${c.name}</b> <small class="muted">${aboard ? 'aboard' : 'benched'}</small></span>
-          <span class="muted">${c.desc}</span><span class="muted">${c.wage} cr/run</span>`;
-        const x = el('button', 'btn tiny', 'Dismiss');
-        x.onclick = () => { Engine.dismissCrew(g, idx); refresh(); };
-        row.appendChild(x);
+        const asn = (g.crewAssignments || []).find(a => a.idx === idx);
+        const aboard = aboardIdx.has(idx);
+        const status = asn ? 'on assignment' : (aboard ? 'aboard' : 'benched');
+        const midCol = asn ? `🛰️ ${(CREW_TASKS[asn.taskId] || {}).name || 'away'}` : c.desc;
+        const rightCol = asn ? `${timeLeft(asn.endsAt)}s left` : `${c.wage} cr/run`;
+        const row = el('div', 'crew-row' + (aboard ? ' aboard' : '') + (asn ? ' assigned' : ''));
+        row.innerHTML = `<span>${c.icon} <b>${c.name}</b> <small class="muted">${status}</small></span>
+          <span class="muted">${midCol}</span><span class="muted">${rightCol}</span>`;
+        const actions = el('span', 'crew-actions');
+        if (asn) {
+          const rc = el('button', 'btn tiny', 'Recall');
+          rc.onclick = () => { Engine.recallCrewAssignment(g, idx); refresh(); };
+          actions.appendChild(rc);
+        } else {
+          for (const t of tasks) {
+            const b = el('button', 'btn tiny', t.icon);
+            b.title = `${t.name} — ${t.desc} (${t.dur}s)`;
+            b.disabled = !!g.mission;
+            b.onclick = () => notify(Engine.assignCrew(g, idx, t.id));
+            actions.appendChild(b);
+          }
+          const x = el('button', 'btn tiny', '✕');
+          x.title = 'Dismiss crew';
+          x.onclick = () => { Engine.dismissCrew(g, idx); refresh(); };
+          actions.appendChild(x);
+        }
+        row.appendChild(actions);
         roster.appendChild(row);
       });
       wrap.appendChild(roster);

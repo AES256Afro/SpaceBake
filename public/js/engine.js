@@ -354,6 +354,9 @@ const Engine = (() => {
     // GalNet news feed rolls forward on expiry (and on first run when endsAt is 0)
     if (!g.newsEndsAt || now >= g.newsEndsAt) rollNews(g);
 
+    // galaxy-wide events come and go (cluster-wide market/yield/risk conditions)
+    rollGalaxyEvent(g);
+
     // contract board refresh on expiry (and on first run)
     if (!g.contractOffersEndsAt || now >= g.contractOffersEndsAt) generateContracts(g);
 
@@ -369,6 +372,9 @@ const Engine = (() => {
 
     // refining job progress
     if (g.refineJob && now >= g.refineJob.endsAt) completeRefineBatch(g);
+
+    // crew off-ship assignments resolve when their timer elapses
+    resolveCrewAssignments(g);
 
     // mission completion. Guard it: if resolution ever throws, clear the mission
     // instead of re-throwing every tick (which would freeze the loop and leave
@@ -464,6 +470,37 @@ const Engine = (() => {
     for (const [k, w] of NEWS_WEIGHTS) { r -= w; if (r <= 0) return k; }
     return NEWS_WEIGHTS[0][0];
   }
+
+  // ----- GALAXY EVENTS: cluster-wide conditions that come and go -----
+  // The active event (def + endsAt) or null. UI reads this too.
+  function activeGalaxyEvent(g) {
+    if (typeof GALAXY_EVENTS === 'undefined' || !g.galaxyEvent) return null;
+    const def = GALAXY_EVENTS.find(e => e.id === g.galaxyEvent.id);
+    return def ? { def, endsAt: g.galaxyEvent.endsAt } : null;
+  }
+  function galaxyEffects(g) { const a = activeGalaxyEvent(g); return (a && a.def.effects) || {}; }
+  function galaxyPriceMult(g, kind) {
+    const e = galaxyEffects(g);
+    return (e.priceAll || 1) * ((e.priceKind && e.priceKind[kind]) || 1);
+  }
+  // advance the galaxy-event clock: run one for 10–19 min, then a 5–10 min lull.
+  function rollGalaxyEvent(g) {
+    if (typeof GALAXY_EVENTS === 'undefined') return;
+    const now = Date.now();
+    if (g.galaxyEvent) {
+      if (now < g.galaxyEvent.endsAt) return;          // still active
+      const def = GALAXY_EVENTS.find(e => e.id === g.galaxyEvent.id);
+      if (def) logLine(g, `🌐 ${def.icon} ${def.name} has passed.`, 'event');
+      g.galaxyEvent = null;
+      g.galaxyEventNextAt = now + (300 + Math.floor(Math.random() * 300)) * 1000; // 5–10 min lull
+      return;
+    }
+    if (g.galaxyEventNextAt && now < g.galaxyEventNextAt) return; // in the lull
+    const ev = GALAXY_EVENTS[Math.floor(Math.random() * GALAXY_EVENTS.length)];
+    g.galaxyEvent = { id: ev.id, startedAt: now, endsAt: now + (600 + Math.floor(Math.random() * 540)) * 1000 }; // 10–19 min
+    logLine(g, `🌐 Galaxy event: ${ev.icon} ${ev.name} — ${ev.desc}`, 'level');
+    pushNews(g, { t: now, cat: 'world', icon: ev.icon, outlet: 'GalNet Frontier', text: ev.news });
+  }
   function makeHeadline(cat, ctx) {
     const t = NEWS_TEMPLATES[cat];
     return { t: Date.now(), cat, icon: t.icon, outlet: newsPick(NEWS_OUTLETS), text: fillTokens(newsPick(t.lines), ctx) };
@@ -542,7 +579,8 @@ const Engine = (() => {
     if (g.mode === 'stealth') chance -= 0.25;                          // run dark to smuggle
     chance -= Math.min(0.2, Math.max(0, factionRep(g, base.factionId)) * 0.01); // trusted = less scrutiny
     chance -= skillLevel(g, 'piloting') * 0.002;
-    chance = Math.max(0.05, Math.min(0.9, chance));
+    chance += galaxyEffects(g).heat || 0;                              // a cluster-wide crackdown ups the risk
+    chance = Math.max(0.05, Math.min(0.95, chance));
     if (Math.random() < chance) {
       let fine = 0;
       for (const id of illegalIds) { fine += g.cargo[id] * RESOURCES[id].value; delete g.cargo[id]; }
@@ -578,6 +616,7 @@ const Engine = (() => {
     if (hostileHere(g)) { g.contractOffers = []; return; }
     const fac = FACTIONS[fid];
     const power = Math.max(...Object.keys(SKILLS).map(k => skillLevel(g, k)));
+    const gm = galaxyEffects(g).contractMult || 1; // galaxy event can boost contract pay
     const offers = [];
     const count = 3;
     for (let i = 0; i < count; i++) {
@@ -588,7 +627,7 @@ const Engine = (() => {
         const resId = fac.wants[Math.floor(Math.random() * fac.wants.length)];
         const res = RESOURCES[resId];
         const qty = 4 + Math.floor(Math.random() * 8) + Math.floor(power / 4);
-        const credits = Math.round(qty * res.value * 1.6 + 80);
+        const credits = Math.round((qty * res.value * 1.6 + 80) * gm);
         const rep = 1 + Math.floor(qty / 10);
         offers.push({
           id: `${fid}-d-${seq}`, faction: fid, type: 'deliver', resource: resId, qty,
@@ -599,7 +638,7 @@ const Engine = (() => {
       } else if (roll < 0.75) {
         // bounty: clear hostiles
         const kills = 2 + Math.floor(Math.random() * 3) + Math.floor(power / 10);
-        const credits = kills * 140 + 100;
+        const credits = Math.round((kills * 140 + 100) * gm);
         const rep = 1 + Math.floor(kills / 3);
         offers.push({
           id: `${fid}-b-${seq}`, faction: fid, type: 'bounty', kills,
@@ -614,7 +653,7 @@ const Engine = (() => {
           .filter(k => ['ore', 'refined', 'salvage', 'fuel', 'part'].includes(k));
         const kind = wantKinds.length ? wantKinds[Math.floor(Math.random() * wantKinds.length)] : 'ore';
         const need = 20 + Math.floor(Math.random() * 30) + power * 2;
-        const credits = Math.round(need * 7 + 120);
+        const credits = Math.round((need * 7 + 120) * gm);
         const rep = 1 + Math.floor(need / 40);
         offers.push({
           id: `${fid}-p-${seq}`, faction: fid, type: 'produce', kind, qty: need,
@@ -924,7 +963,7 @@ const Engine = (() => {
     if (combatOk && (act.drops || run.bonusLoot.length)) {
       const masteryMult = 1 + skillLevel(g, act.skill) * 0.004;
       const tier = m.poi ? poiTier(m.poi) : POI_TIERS.standard;
-      const mult = run.lootMult * beh.lootMult * progress * masteryMult * cargoBayPenalty(g) * bonus(g, 'yield') * tier.mult;
+      const mult = run.lootMult * beh.lootMult * progress * masteryMult * cargoBayPenalty(g) * bonus(g, 'yield') * tier.mult * (galaxyEffects(g).yield || 1);
       for (const [id, lo, hi] of (act.drops || [])) {
         let qty = lo + Math.floor(Math.random() * (hi - lo + 1));
         qty = Math.round(qty * mult);
@@ -1354,7 +1393,8 @@ const Engine = (() => {
     }
     const tradeBonus = 1 + skillLevel(g, 'trade') * 0.004;
     const repBonus = 1 + Math.max(-0.2, Math.min(0.25, factionRep(g, base.factionId) * 0.01));
-    return Math.max(1, Math.round(res.value * mod * evMult * tradeBonus * repBonus * bonus(g, 'price')));
+    const galaxyMult = galaxyPriceMult(g, res.kind); // cluster-wide galaxy event swing
+    return Math.max(1, Math.round(res.value * mod * evMult * tradeBonus * repBonus * bonus(g, 'price') * galaxyMult));
   }
   function sellPrice(g, id) { return sellPriceAtBase(g, curBase(g), id); }
   function buyPriceAtBase(g, base, id) { return Math.max(1, Math.ceil(sellPriceAtBase(g, base, id) * BUY_SPREAD)); }
@@ -1427,6 +1467,39 @@ const Engine = (() => {
     for (const id of Object.keys({ ...g.cargo })) {
       if (['ore', 'salvage'].includes(RESOURCES[id].kind)) sellResource(g, id, g.cargo[id]);
     }
+  }
+
+  // ----- black market: reputation-gated fence for illegal goods -----
+  // Open at lawless ports, or anywhere once you have a Red Maw contact (rep ≥ 3).
+  function blackMarketOpen(g) {
+    const fac = FACTIONS[curBase(g).factionId];
+    return (fac && fac.lawful === false) || factionRep(g, 'redmaw') >= 3;
+  }
+  // buy discount scales with Red Maw standing (a known smuggler pays less).
+  function blackMarketDiscount(g) { return Math.min(0.3, Math.max(0, factionRep(g, 'redmaw')) * 0.02); }
+  // illegal/loot goods you can buy here to smuggle and resell at a lawless port.
+  const BLACKMARKET_IDS = ['contraband', 'black_box', 'damaged_module'];
+  function blackMarketGoods(g) {
+    if (!blackMarketOpen(g)) return [];
+    const disc = blackMarketDiscount(g);
+    return BLACKMARKET_IDS.filter(id => RESOURCES[id]).map(id => ({
+      id, price: Math.max(1, Math.round(RESOURCES[id].value * 1.15 * (1 - disc))),
+    }));
+  }
+  function buyBlackMarket(g, id, qty) {
+    if (!blackMarketOpen(g)) return { ok: false, msg: 'No fence will deal with you here.' };
+    const good = blackMarketGoods(g).find(x => x.id === id);
+    if (!good) return { ok: false, msg: 'Not on offer here.' };
+    const room = Math.max(0, shipStats(g).cargo - cargoUsed(g));
+    const affordable = Math.floor(g.credits / good.price);
+    qty = Math.min(qty, room, affordable);
+    if (qty <= 0) return { ok: false, msg: room <= 0 ? 'Cargo hold is full.' : 'Not enough credits.' };
+    const total = good.price * qty;
+    g.credits -= total;
+    g.cargo[id] = (g.cargo[id] || 0) + qty;
+    addSkillXp(g, 'trade', Math.ceil(total / 50));
+    logLine(g, `Bought ${qty}× ${RESOURCES[id].name} on the black market for ${total} cr.`, 'go');
+    return { ok: true };
   }
 
   // ----- repair & refuel -----
@@ -1569,9 +1642,71 @@ const Engine = (() => {
   }
   function dismissCrew(g, index) {
     if (index < 0 || index >= (g.crew || []).length) return { ok: false };
+    if ((g.crewAssignments || []).some(a => a.idx === index)) return { ok: false, msg: 'That crew member is away on assignment — recall them first.' };
     const [id] = g.crew.splice(index, 1);
+    // assignments index into g.crew; keep them aligned after the splice
+    g.crewAssignments = (g.crewAssignments || []).map(a => a.idx > index ? { ...a, idx: a.idx - 1 } : a);
     logLine(g, `Dismissed ${CREW[id] ? CREW[id].name : 'crew'}.`);
     return { ok: true };
+  }
+
+  // ----- crew assignments: timed off-ship side-tasks with weighted outcomes -----
+  function revealOneHiddenPoi(g) {
+    const sys = SYSTEMS[g.currentSystem]; if (!sys) return null;
+    const ids = [...(sys.spacePois || [])];
+    for (const bid of (sys.bodies || [])) ids.push(...((BODIES[bid] && BODIES[bid].pois) || []));
+    const hidden = ids.filter(id => POIS[id] && POIS[id].hidden && !(g.discovered || []).includes(id));
+    if (!hidden.length) return null;
+    const pick = hidden[Math.floor(Math.random() * hidden.length)];
+    if (!g.discovered) g.discovered = [];
+    g.discovered.push(pick);
+    return pick;
+  }
+  function assignCrew(g, idx, taskId) {
+    if (typeof CREW_TASKS === 'undefined' || !CREW_TASKS[taskId]) return { ok: false, msg: 'Unknown assignment.' };
+    if (idx < 0 || idx >= (g.crew || []).length) return { ok: false, msg: 'No such crew member.' };
+    if (!g.crewAssignments) g.crewAssignments = [];
+    if (g.crewAssignments.some(a => a.idx === idx)) return { ok: false, msg: 'They are already on assignment.' };
+    const task = CREW_TASKS[taskId];
+    g.crewAssignments.push({ idx, taskId, startedAt: Date.now(), endsAt: Date.now() + task.dur * 1000 });
+    const c = CREW[g.crew[idx]];
+    logLine(g, `${c ? c.icon + ' ' + c.name : 'A crew member'} heads off on assignment: ${task.name} (${task.dur}s).`, 'go');
+    return { ok: true };
+  }
+  function recallCrewAssignment(g, idx) {
+    if (!g.crewAssignments) return { ok: false };
+    const i = g.crewAssignments.findIndex(a => a.idx === idx);
+    if (i < 0) return { ok: false };
+    g.crewAssignments.splice(i, 1);
+    logLine(g, 'Recalled a crew member from assignment early — they came back empty-handed.', 'event');
+    return { ok: true };
+  }
+  function resolveCrewAssignments(g) {
+    if (!g.crewAssignments || !g.crewAssignments.length) return;
+    const now = Date.now();
+    for (const a of g.crewAssignments.slice()) {
+      if (now < a.endsAt) continue;
+      g.crewAssignments = g.crewAssignments.filter(x => x !== a);
+      const task = CREW_TASKS[a.taskId]; if (!task) continue;
+      const c = CREW[(g.crew || [])[a.idx]];
+      const res = rollOutcome(task.outcomes, 0);
+      const parts = [];
+      if (res.credits) {
+        const amt = Math.round(res.credits[0] + Math.random() * (res.credits[1] - res.credits[0]));
+        g.credits = Math.max(0, g.credits + amt); if (amt > 0) g.stats.credEarned += amt;
+        parts.push(`${amt >= 0 ? '+' : ''}${amt} cr`);
+      }
+      if (res.items) {
+        const fit = addToCargo(g, Object.fromEntries(res.items));
+        const s = Object.entries(fit).map(([id, q]) => `${q}× ${RESOURCES[id].name}`).join(', ');
+        if (s) parts.push(s);
+      }
+      if (res.rep) { addRep(g, curBase(g).factionId, res.rep); parts.push(`${FACTIONS[curBase(g).factionId].name} ${res.rep > 0 ? '+' : ''}${res.rep}`); }
+      if (res.xp) addSkillXp(g, 'trade', res.xp);
+      if (res.survey) { const f = revealOneHiddenPoi(g); if (f) parts.push(`charted ${POIS[f].name}`); }
+      const who = c ? `${c.icon} ${c.name}` : 'A crew member';
+      logLine(g, `${who} returned from ${task.name} — ${res.log}${parts.length ? ` (${parts.join(', ')})` : ''}`, res.bad ? 'bad' : 'good');
+    }
   }
 
   // ----- MVP 5: fleet & passive income -----
@@ -1761,6 +1896,9 @@ const Engine = (() => {
     deployFleet, recallDeployment, collectFleetStock, sellFleetStock,
     idleCount, deployedCount, fleetStockTotal,
     shipIntegrity,
+    activeGalaxyEvent,
+    blackMarketOpen, blackMarketGoods, buyBlackMarket,
+    assignCrew, recallCrewAssignment,
     logLine,
   };
 })();

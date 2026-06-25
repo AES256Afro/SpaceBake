@@ -17,6 +17,9 @@ function newGame() {
     newsEndsAt: 0,                  // when to roll the next batch (0 => roll on first tick)
     newsSeen: 0,                    // timestamp the player last opened the News tab (for the unread badge)
     rumors: [],                     // cantina gossip at the current base (refreshes with the contract board)
+    galaxyEvent: null,              // active cluster-wide event {id, startedAt, endsAt} or null
+    galaxyEventNextAt: 0,           // earliest time the next galaxy event may start
+    crewAssignments: [],            // crew off on timed side-tasks: [{idx, taskId, startedAt, endsAt}]
     contractOffers: [],             // faction contracts available at this station
     contractOffersEndsAt: 0,        // when to re-roll offers
     activeContract: null,           // the one contract you've accepted
@@ -113,6 +116,9 @@ function loadGame() {
     if (typeof g.newsEndsAt !== 'number') g.newsEndsAt = 0;
     if (typeof g.newsSeen !== 'number') g.newsSeen = 0;
     if (!Array.isArray(g.rumors)) g.rumors = [];
+    if (g.galaxyEvent !== null && typeof g.galaxyEvent !== 'object') g.galaxyEvent = null;
+    if (typeof g.galaxyEventNextAt !== 'number') g.galaxyEventNextAt = 0;
+    if (!Array.isArray(g.crewAssignments)) g.crewAssignments = [];
     delete g.wars; // wars were never shipped as a mechanic; drop any stragglers from earlier saves
     if (g.pendingEncounter === undefined) g.pendingEncounter = null;
     // ---- forward-migrate older saves (pre-MVP4) ----
@@ -227,7 +233,10 @@ function addRep(g, fid, amt) {
 // crew that fit the active ship's berths are "aboard" and apply their bonuses.
 function crewSlots(g) { return CREW_SLOTS[g.activeShip] ?? 1; }
 function crewAboard(g) {
-  return (g.crew || []).slice(0, crewSlots(g)).map(id => CREW[id]).filter(Boolean);
+  // crew away on an assignment vacate their berth; a benched crew slides in.
+  const busy = new Set((g.crewAssignments || []).map(a => a.idx));
+  const avail = (g.crew || []).filter((id, i) => !busy.has(i));
+  return avail.slice(0, crewSlots(g)).map(id => CREW[id]).filter(Boolean);
 }
 // combined multiplier for a bonus key across aboard crew (1 = no effect)
 function crewMult(g, key) {
