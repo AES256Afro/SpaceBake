@@ -163,13 +163,21 @@ const SHIP_SYSTEMS = ['hull', 'reactor', 'engines', 'sensors', 'cargobay', 'weap
 // heatCut (less heat damage).
 // ---------------------------------------------------------------------------
 const CREW_SLOTS = { shuttle: 1, prospector: 2, gunship: 2, freighter: 2, battlecruiser: 3 };
+// `bark` lines occasionally surface in the Ship's Log while that crew is aboard —
+// pure character, no mechanical effect.
 const CREW = {
-  foreman:   { name: 'Mining Foreman',    icon: '⛏️', cost: 3500, wage: 8,  bonus: { yield: 0.15 },               desc: '+15% haul from mining & salvage runs.' },
-  gunner:    { name: 'Master Gunner',     icon: '🎯', cost: 4200, wage: 10, bonus: { combat: 0.15 },              desc: '+15% weapon damage in combat.' },
-  engineer:  { name: 'Chief Engineer',    icon: '🔧', cost: 4000, wage: 9,  bonus: { refine: 0.20, heatCut: 0.4 },desc: '+20% refinery speed; far less heat damage.' },
-  navigator: { name: 'Navigator',         icon: '🧭', cost: 3800, wage: 8,  bonus: { speed: 0.15 },               desc: '-15% mission & jump time.' },
-  quarter:   { name: 'Quartermaster',     icon: '💼', cost: 4500, wage: 11, bonus: { price: 0.12 },               desc: '+12% sell prices at every market.' },
-  logistics: { name: 'Logistics Officer', icon: '📦', cost: 6000, wage: 14, bonus: { fleet: 0.25 },               desc: '+25% fleet passive income.' },
+  foreman:   { name: 'Mining Foreman',    icon: '⛏️', cost: 3500, wage: 8,  bonus: { yield: 0.15 },               desc: '+15% haul from mining & salvage runs.',
+    bark: ['"Now THAT\'s a vein. Tell the kids back home."', '"Rock doesn\'t lie. Credits do — but rock doesn\'t."', '"Another belt, another blister. Worth it."', '"Reading a fat seam off the port bow, skipper."'] },
+  gunner:    { name: 'Master Gunner',     icon: '🎯', cost: 4200, wage: 10, bonus: { combat: 0.15 },              desc: '+15% weapon damage in combat.',
+    bark: ['"Two bogeys lit up. Make it one."', '"I don\'t miss. I just re-aim."', '"Keep \'em off the bow and I\'ll keep \'em off the manifest."', '"Powder\'s dry, sights are hot."'] },
+  engineer:  { name: 'Chief Engineer',    icon: '🔧', cost: 4000, wage: 9,  bonus: { refine: 0.20, heatCut: 0.4 },desc: '+20% refinery speed; far less heat damage.',
+    bark: ['"She\'ll hold. Probably."', '"Reactor\'s purring. Don\'t jinx it."', '"Give me ten minutes and a wrench and I\'ll give you a miracle."', '"Heat\'s in the green. For now."'] },
+  navigator: { name: 'Navigator',         icon: '🧭', cost: 3800, wage: 8,  bonus: { speed: 0.15 },               desc: '-15% mission & jump time.',
+    bark: ['"Plotted a tighter lane. Shaved us some minutes."', '"Stars are where I left them. Good."', '"Trust the charts, not the rumours."', '"I could fly this run blindfolded. Won\'t, though."'] },
+  quarter:   { name: 'Quartermaster',     icon: '💼', cost: 4500, wage: 11, bonus: { price: 0.12 },               desc: '+12% sell prices at every market.',
+    bark: ['"Every buyer has a price. I just find it first."', '"Hold\'s organised. Don\'t touch anything."', '"Sell where they\'re hungry, not where they\'re close."', '"Margins, captain. Always the margins."'] },
+  logistics: { name: 'Logistics Officer', icon: '📦', cost: 6000, wage: 14, bonus: { fleet: 0.25 },               desc: '+25% fleet passive income.',
+    bark: ['"Fleet\'s on schedule. For once."', '"Drones don\'t complain. Refreshing."', '"Numbers up across the board this cycle."', '"Logistics wins wars. And belts."'] },
 };
 
 // ---------------------------------------------------------------------------
@@ -1120,6 +1128,43 @@ const NEWS_WEIGHTS = [
 ];
 
 // ---------------------------------------------------------------------------
+// CANTINA RUMOURS — overheard gossip at a starbase bar. Same {token} fill as
+// GalNet (faction/system/resource/person/body/ship…), but bar-voice and local.
+// Pure flavour; refreshed when the contract board rolls. Some carry a faint hint
+// (rich belts, hot markets) but no mechanical guarantee.
+// ---------------------------------------------------------------------------
+const RUMORS = [
+  'A miner two stools down swears the belts past {system2} are running rich this season.',
+  'Bartender says {title} {person} hasn\'t paid a tab here in months. Still drinks like a magnate.',
+  'Word is the {faction} is quietly buying up every scrap of {resource} it can find.',
+  'Somebody lost a whole cargo of {resource} to raiders on the {system}–{system2} lane last week.',
+  '"Don\'t scan the deep rocks off {body}," an old hand mutters. "Things ping back that shouldn\'t."',
+  'They say a derelict the size of a station is drifting somewhere past {system2}. Nobody\'s claimed it.',
+  'A courier reckons the {rival} and the {faction} are one bad day from open shooting.',
+  'Heard the market for {resource} is about to pop. Heard it from a guy who\'s usually wrong.',
+  'Customs at {system} have been tearing ships apart looking for contraband. Fly clean.',
+  'A prospector cashed out huge off {body} and bought the whole bar a round. Then vanished.',
+  'Pilot named {person} is hiring crew for a job nobody will describe. Pays in advance, though.',
+  '"The {faction} pays double for {resource} right now," she says, "if you don\'t ask where it goes."',
+  'Some fool tried to fence stolen goods at a lawful port again. They\'re still mopping up.',
+  'The cantina\'s betting pool says {ship} won\'t make it back from the {system} run. Long odds.',
+  'An engineer swears the {faction} is testing something new out past {body}. Lights, no transponder.',
+  'Rumour is a Concord survey turned up something out near {system2} they\'re not talking about.',
+];
+
+// short colour lines when you dock somewhere; {base}/{faction}/{system} filled in.
+const ARRIVAL_LINES = [
+  'Docking clamps engage with a shudder; {base} smells of ozone and recycled air.',
+  'Traffic control at {base} waves you in between two battered ore haulers.',
+  'The concourse of {base} hums with traders, off-duty crews and the usual hustle.',
+  '{base} drifts in the light of {system} as your ship settles into its cradle.',
+  'A {faction} dock officer stamps your manifest without looking up.',
+  'Somewhere on {base}, a busker is butchering an old belt shanty.',
+  'The bays of {base} are crowded — everyone\'s in port riding out something.',
+  'Maintenance drones swarm your hull the moment you dock at {base}.',
+];
+
+// ---------------------------------------------------------------------------
 // EVENT DEFINITIONS — fired mid-run. effect() mutates a run-result object.
 // Each returns a short log line.
 // ---------------------------------------------------------------------------
@@ -1233,6 +1278,76 @@ const DISTRESS = [
       { label: 'Board and salvage', combat: { name: 'Rogue Lab Drones', hull: 90, armor: 30, weapon: 12, evasion: 4 }, result: { items: [['black_box', 1], ['damaged_module', 2], ['focusing_lens', 1]], xp: 65, log: 'The drones fought back, but the labs held real treasure.' } },
       { label: 'Tow it to station', skill: 'piloting', result: { credits: [260, 420], xp: 50, log: 'You towed the hulk in for a finder fee.' } },
       { label: 'Mark and report',   result: { xp: 12, rep: 1, log: 'You reported the wreck to the Union. Minor goodwill.' } },
+    ],
+  },
+  {
+    id: 'plague_ship',
+    title: 'Quarantine Beacon',
+    text: 'A liner squawks a medical quarantine code. Through the ports you can see crew in containment suits — and untouched cargo.',
+    choices: [
+      { label: 'Deliver medicine', skill: 'engineering', result: { credits: [240, 460], xp: 55, rep: 2, log: 'You rigged a sterile transfer and dosed the sick. They will not forget it.' } },
+      { label: 'Loot the holds anyway', result: { items: [['contraband', 1], ['damaged_module', 2], ['wiring', 4]], xp: 30, rep: -2, log: 'You took what you wanted and ran before anything could spread. Cold work.' } },
+      { label: 'Keep your distance', result: { xp: 8, log: 'Whatever it is, it stays over there. You logged the beacon and burned away.' } },
+    ],
+  },
+  {
+    id: 'trapped_miners',
+    title: 'Collapsed Dig Site',
+    text: 'A rockfall has sealed a mining crew inside a hollowed asteroid. Their air is thinning.',
+    choices: [
+      { label: 'Cut them out', skill: 'mining', result: { credits: [160, 300], items: [['nickel_ore', 4], ['copper_ore', 2]], xp: 60, rep: 1, log: 'You lased a path clear. The foreman pressed ore into your hands by way of thanks.' } },
+      { label: 'Charge for the rescue', skill: 'trade', result: { credits: [320, 520], xp: 35, rep: -1, log: 'Desperate people pay anything. You named a price and they met it.' } },
+      { label: 'Relay for help', result: { xp: 12, rep: 1, log: 'You boosted their distress call to the nearest station and moved on.' } },
+    ],
+  },
+  {
+    id: 'defector',
+    title: 'A Quiet Defector',
+    text: 'A lone shuttle hails you on a private band. The pilot says they\'re leaving the Red Maw — for good — and need a way out.',
+    choices: [
+      { label: 'Smuggle them to safety', skill: 'piloting', result: { credits: [200, 360], xp: 55, rep: 2, log: 'You tucked the shuttle in your sensor shadow and slipped them past the patrols.' } },
+      { label: 'Sell them back to the Maw', result: { credits: [380, 600], xp: 25, rep: -3, log: 'Betrayal pays well and costs more. The Union heard about it.' } },
+      { label: 'Take their intel, leave them', skill: 'piloting', result: { items: [['black_box', 1]], xp: 30, log: 'You copied their nav logs and cut the line. They were on their own.' } },
+    ],
+  },
+  {
+    id: 'fuel_beggar',
+    title: 'Bone-Dry Drifter',
+    text: 'A prospector hangs dead in the void, tanks empty, hailing on the open channel for a fuel transfer.',
+    choices: [
+      { label: 'Spare some fuel', result: { credits: [90, 170], xp: 30, rep: 1, log: 'You bled off some hydrogen. They paid what little they had — and meant it.' } },
+      { label: 'Trade fuel at a markup', skill: 'trade', result: { credits: [200, 340], xp: 25, log: 'Out here, a full tank is worth a fortune. You charged accordingly.' } },
+      { label: 'Drift on past', result: { xp: 5, log: 'Not your fuel, not your problem. You held your burn.' } },
+    ],
+  },
+  {
+    id: 'liner_under_fire',
+    title: 'Liner Under Fire',
+    text: 'A passenger liner is screaming for help — raiders are closing to board. There\'s no time to think.',
+    choices: [
+      { label: 'Drive off the raiders', combat: { name: 'Boarding Raiders', hull: 150, armor: 18, weapon: 20, evasion: 8, abilities: ['evasive'] }, result: { credits: [300, 520], xp: 70, rep: 2, log: 'You broke the boarding run. The liner\'s captain wired a hero\'s reward.' } },
+      { label: 'Demand payment first', skill: 'trade', combat: { name: 'Boarding Raiders', hull: 150, armor: 18, weapon: 20, evasion: 8, abilities: ['evasive'] }, result: { credits: [520, 760], xp: 55, rep: -1, log: 'You haggled while they bled, then saved them. Mercenary — but effective.' } },
+      { label: 'You\'re outgunned — run', result: { xp: 10, rep: -1, log: 'You couldn\'t take that fight and you knew it. The channel went quiet behind you.' } },
+    ],
+  },
+  {
+    id: 'ghost_signal',
+    title: 'The Repeating Signal',
+    text: 'A distress loop plays on every band — the same calm voice, the same words, over and over. The source reads as a ship that was lost decades ago.',
+    choices: [
+      { label: 'Trace the signal', skill: 'piloting', result: { items: [['black_box', 1], ['survey_data', 3]], xp: 60, log: 'You followed it to a cold hulk and pulled its recorder. Some questions stayed unanswered.' } },
+      { label: 'Record it for the Concord', skill: 'salvage', result: { credits: [180, 300], xp: 45, rep: 1, log: 'The Concord pays for anomalies. They were very interested in this one.' } },
+      { label: 'Mute it and leave', result: { xp: 8, log: 'You silenced the channel and put distance between you and whatever that was.' } },
+    ],
+  },
+  {
+    id: 'false_flag',
+    title: 'A Familiar Hull',
+    text: 'The beacon is genuine — but the ship behind it is on every bounty board in the Reach. They\'re pretending to be helpless.',
+    choices: [
+      { label: 'Spring the trap first', combat: { name: 'Wanted Corsair', hull: 220, armor: 28, weapon: 26, evasion: 11, shield: 80, abilities: ['alpha'] }, result: { credits: [400, 640], items: [['contraband', 2], ['black_box', 1]], xp: 90, rep: 1, log: 'You hit them before they could hit you. The bounty alone paid for the repairs.' } },
+      { label: 'Call in their position', result: { credits: [150, 260], xp: 35, rep: 2, log: 'You fed their coordinates to a patrol and let the professionals handle it.' } },
+      { label: 'Pretend you didn\'t notice', result: { xp: 10, log: 'You waved, throttled up, and got gone. Live to haul another day.' } },
     ],
   },
 ];

@@ -121,6 +121,11 @@ body.reduce-motion .progress-fill::after { display: none; }
 body.reduce-motion .ticker-track { animation: none; }
 
 /* GalNet news feed (News tab) */
+/* cantina rumours */
+.rumor-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 16px; }
+.rumor { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold);
+  border-radius: 8px; padding: 8px 12px; font-size: 13px; font-style: italic; color: var(--text); }
+
 .news-feed { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .news-item { display: flex; gap: 12px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line);
   border-left: 3px solid var(--accent2); border-radius: 10px; padding: 10px 14px; }
