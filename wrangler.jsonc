@@ -1,0 +1,21 @@
+{
+  // SpaceBake — static site served by Cloudflare Workers Static Assets.
+  // No build step: the whole folder is uploaded and served as static files.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "spacebake",
+  "compatibility_date": "2026-06-20",
+
+  // Serve the public/ folder as static assets (assets-only Worker, no script
+  // needed). Only the game lives there — node_modules and config stay at the root.
+  "assets": {
+    "directory": "./public"
+  },
+
+  // keep the *.workers.dev URL live alongside the custom domains
+  "workers_dev": true,
+
+  "routes": [
+    { "pattern": "mydexnow.com", "custom_domain": true },
+    { "pattern": "www.mydexnow.com", "custom_domain": true }
+  ]
+}
