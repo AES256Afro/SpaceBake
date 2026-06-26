@@ -1648,11 +1648,21 @@ const UI = (() => {
   function tickRender() {
     renderTopbar();
     renderTicker();
+    // Detect mission/banner state transitions across frames. When a run finishes
+    // and the idle loop stops — out of fuel, paused for damage, auto-repeat off, or
+    // a relaunch error — the body was last rendered with its Launch buttons disabled
+    // (busy) and is never refreshed by the per-frame tick. That left the player stuck:
+    // the progress bar vanishes and every button stays greyed out. Re-render the body
+    // on any banner-key change so controls re-enable the moment the loop halts.
+    const prevBannerKey = bannerState.key;
     renderMissionBanner();
+    if (bannerState.key !== prevBannerKey) {
+      renderBody();
+    }
     // live-refresh refinery progress bar if visible
-    if (tab === 'refinery' && g.refineJob) renderBody();
+    else if (tab === 'refinery' && g.refineJob) renderBody();
     // refresh the news feed when fresh headlines land (cheap: only on count change)
-    if (tab === 'news' && (g.news || []).length !== lastNewsBodyLen) {
+    else if (tab === 'news' && (g.news || []).length !== lastNewsBodyLen) {
       lastNewsBodyLen = (g.news || []).length;
       renderBody();
     }
