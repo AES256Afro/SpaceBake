@@ -99,7 +99,7 @@ const UI = (() => {
     if (g.pendingDistress) return 'D:' + g.pendingDistress.scenario;
     if (g.pendingEncounter) return 'E:' + g.pendingEncounter.scenario;
     if (g.mission) return 'M:' + g.mission.id + ':' + g.mission.type;
-    if (g.autoRepeatPaused) return 'P';
+    if (g.autoRepeatPaused) return 'P:' + (g.idleStopReason || 'damage');
     return 'none';
   }
   function renderMissionBanner() {
@@ -165,13 +165,16 @@ const UI = (() => {
   // shown in place of the progress bar when the idle loop pauses for ship damage,
   // so the banner area never just goes blank when a run finishes.
   function resumeIdle() {
-    g.autoRepeat = true; g.autoRepeatPaused = false;
+    g.autoRepeat = true; g.autoRepeatPaused = false; g.idleStopReason = null;
     if (g.lastRoute) {
       const r = g.lastRoute.poi ? Engine.startPoiMission(g, g.lastRoute.poi) : Engine.startMission(g, g.lastRoute.id);
       if (r && r.ok === false) Engine.logLine(g, `Couldn't resume: ${r.msg}`, 'bad');
     }
   }
   function renderIdlePaused() {
+    // Out of fuel is its own pause reason: show a refuel prompt rather than the
+    // damage/repair one, so the player sees exactly why the loop stopped.
+    if (g.idleStopReason === 'fuel') return renderFuelPaused();
     const card = el('div', 'banner-card distress');
     const integ = Engine.shipIntegrity ? Engine.shipIntegrity(g) : 0;
     card.innerHTML = `<div class="banner-head"><strong>⏸️ Idle loop paused</strong><span class="muted">integrity ${integ}% · below ${g.repairAt}%</span></div>
@@ -183,6 +186,24 @@ const UI = (() => {
     const resume = el('button', 'btn', '▶ Resume anyway');
     resume.onclick = () => { resumeIdle(); refresh(); };
     row.appendChild(resume);
+    card.appendChild(row);
+    return card;
+  }
+  function renderFuelPaused() {
+    const card = el('div', 'banner-card distress');
+    card.innerHTML = `<div class="banner-head"><strong>⛽ Out of fuel</strong><span class="muted">idle loop paused</span></div>
+      <p class="distress-text">Your ship is out of fuel and can't keep running. Refuel to resume the route — or top up from the 🛰️ Starbase tab.</p>`;
+    const row = el('div', 'distress-choices');
+    const buy = el('button', 'btn', '⛽ Refuel & resume');
+    buy.onclick = () => {
+      const r = Engine.refuel(g, 25);          // enough to cover any single run's fuel cost
+      if (r.ok) resumeIdle();                   // top up, then relaunch the remembered route
+      notify(r);                                // surfaces "Not enough credits"/hostile-base errors
+    };
+    row.appendChild(buy);
+    const dismiss = el('button', 'btn', '✕ Dismiss');
+    dismiss.onclick = () => { g.autoRepeatPaused = false; g.idleStopReason = null; refresh(); };
+    row.appendChild(dismiss);
     card.appendChild(row);
     return card;
   }
@@ -1648,11 +1669,21 @@ const UI = (() => {
   function tickRender() {
     renderTopbar();
     renderTicker();
+    // Detect mission/banner state transitions across frames. When a run finishes
+    // and the idle loop stops — out of fuel, paused for damage, auto-repeat off, or
+    // a relaunch error — the body was last rendered with its Launch buttons disabled
+    // (busy) and is never refreshed by the per-frame tick. That left the player stuck:
+    // the progress bar vanishes and every button stays greyed out. Re-render the body
+    // on any banner-key change so controls re-enable the moment the loop halts.
+    const prevBannerKey = bannerState.key;
     renderMissionBanner();
+    if (bannerState.key !== prevBannerKey) {
+      renderBody();
+    }
     // live-refresh refinery progress bar if visible
-    if (tab === 'refinery' && g.refineJob) renderBody();
+    else if (tab === 'refinery' && g.refineJob) renderBody();
     // refresh the news feed when fresh headlines land (cheap: only on count change)
-    if (tab === 'news' && (g.news || []).length !== lastNewsBodyLen) {
+    else if (tab === 'news' && (g.news || []).length !== lastNewsBodyLen) {
       lastNewsBodyLen = (g.news || []).length;
       renderBody();
     }

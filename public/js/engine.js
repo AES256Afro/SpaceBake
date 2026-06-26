@@ -221,6 +221,7 @@ const Engine = (() => {
       poi: opts.poi || null, location: opts.location || null,
     };
     g.lastRoute = { id: activityId, poi: opts.poi || null }; // remembered so a paused idle loop can resume
+    g.idleStopReason = null; // a successful launch clears any prior pause reason
     logLine(g, `Undocked: ${act.name}${opts.location ? ` → ${opts.location}` : ''} (${dur}s).`, 'go');
     return { ok: true };
   }
@@ -1124,13 +1125,23 @@ const Engine = (() => {
       if (integrity < threshold) {
         g.autoRepeat = false;
         g.autoRepeatPaused = true; // distinguish "stopped to repair" from a hard stop
+        g.idleStopReason = 'damage';
         logLine(g, `Auto-route paused: ship integrity ${integrity}% fell below the ${threshold}% threshold. Repair to resume.`, 'bad');
       } else {
         const res = m.poi ? startPoiMission(g, m.poi) : startMission(g, m.id);
         if (!res.ok) {
           g.autoRepeat = false;
-          g.autoRepeatPaused = false;
-          logLine(g, `Auto-route stopped: ${res.msg}`, 'bad');
+          if (res.msg === 'Not enough fuel.') {
+            // Out of fuel is recoverable — pause (like a damage stop) and tell the
+            // player why, so the banner shows a refuel prompt instead of vanishing.
+            g.autoRepeatPaused = true;
+            g.idleStopReason = 'fuel';
+            logLine(g, 'Auto-route paused: out of fuel. Refuel to resume.', 'bad');
+          } else {
+            g.autoRepeatPaused = false;
+            g.idleStopReason = null;
+            logLine(g, `Auto-route stopped: ${res.msg}`, 'bad');
+          }
         }
       }
     }
