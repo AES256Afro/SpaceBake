@@ -65,6 +65,7 @@ function newGame() {
     crew: [],                       // hired crew ids (first CREW_SLOTS are "aboard")
     unlocks: { automation: true },  // automation is on for everyone now (idle loop is core)
     autoRepeat: true,               // idle missions auto-repeat by default (pause is the damage threshold)
+    idleStopReason: null,           // why the idle loop paused: 'damage' | 'fuel' | null (drives the banner)
     fleet: {},                      // owned fleet units: unitId -> count
     fleetPendingCr: 0,              // accrued, unclaimed passive income
     fleetLast: Date.now(),          // last time fleet income/harvest was accrued
